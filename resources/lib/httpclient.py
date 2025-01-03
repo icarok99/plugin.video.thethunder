@@ -39,10 +39,28 @@ def open_movie_api(id):
 
 def movies_api(page,t):
     url1 = {'premiere': 'https://api.themoviedb.org/3/movie/now_playing?api_key={0}&append_to_response=external_ids&page={1}&language='.format(API_KEY1,str(page)) + AutoTranslate.language('lang-api'),
-           'trending': 'https://api.themoviedb.org/3/movie/popular?api_key={0}&append_to_response=external_ids&page={1}&language='.format(API_KEY1,str(page)) + AutoTranslate.language('lang-api')
+           'trending': 'https://api.themoviedb.org/3/trending/movie/day?api_key={0}&append_to_response=external_ids&page={1}&language='.format(API_KEY1,str(page)) + AutoTranslate.language('lang-api')
            }.get(t, '')
     url2 = {'premiere': 'https://api.themoviedb.org/3/movie/now_playing?api_key={0}&append_to_response=external_ids&page={1}&language='.format(API_KEY2,str(page)) + AutoTranslate.language('lang-api'),
-           'trending': 'https://api.themoviedb.org/3/movie/popular?api_key={0}&append_to_response=external_ids&page={1}&language='.format(API_KEY2,str(page)) + AutoTranslate.language('lang-api')
+           'trending': 'https://api.themoviedb.org/3/trending/movie/day?api_key={0}&append_to_response=external_ids&page={1}&language='.format(API_KEY2,str(page)) + AutoTranslate.language('lang-api')
+           }.get(t, '')    
+    if url1:
+        try:
+            src = request_api(url1,url2)
+            total_pages = src.get('total_pages', 0)
+            results = src.get('results', False)
+            return total_pages,results
+        except:
+            return 0,False
+    else:
+        return 0,False
+
+def movies2_api(page,t):
+    url1 = {'popular': 'https://api.themoviedb.org/3/movie/popular?api_key={0}&append_to_response=external_ids&page={1}&language='.format(API_KEY1,str(page)) + AutoTranslate.language('lang-api'),
+           'toprated': 'https://api.themoviedb.org/3/movie/top_rated?api_key={0}&append_to_response=external_ids&page={1}&language='.format(API_KEY1,str(page)) + AutoTranslate.language('lang-api')
+           }.get(t, '')
+    url2 = {'popular': 'https://api.themoviedb.org/3/movie/popular?api_key={0}&append_to_response=external_ids&page={1}&language='.format(API_KEY2,str(page)) + AutoTranslate.language('lang-api'),
+           'toprated': 'https://api.themoviedb.org/3/movie/top_rated?api_key={0}&append_to_response=external_ids&page={1}&language='.format(API_KEY2,str(page)) + AutoTranslate.language('lang-api')
            }.get(t, '')    
     if url1:
         try:
@@ -85,10 +103,9 @@ def get_date():
         fulldate = str(date_today)
     return last_year, fulldate
 
-def tv_shows_premiere_api(page):
-    year_datetime, date = get_date()
-    url1 = 'https://api.themoviedb.org/3/discover/tv?api_key={0}&sort_by=popularity.desc&first_air_date_year={1}&timezone=America%2FNew_York&include_null_first_air_ates=false&page={2}&language='.format(API_KEY1,str(year_datetime),str(page)) + AutoTranslate.language('lang-api')
-    url2 = 'https://api.themoviedb.org/3/discover/tv?api_key={0}&sort_by=popularity.desc&first_air_date_year={1}&timezone=America%2FNew_York&include_null_first_air_ates=false&page={2}&language='.format(API_KEY2,str(year_datetime),str(page)) + AutoTranslate.language('lang-api')
+def tv_shows_trending_api(page):
+    url1 = 'https://api.themoviedb.org/3/tv/trending/tv/day?api_key={0}&page={1}&language='.format(API_KEY1,str(page)) + AutoTranslate.language('lang-api')
+    url2 = 'https://api.themoviedb.org/3/trending/tv/day?api_key={0}&page={1}&language='.format(API_KEY2,str(page)) + AutoTranslate.language('lang-api')
     try:
         src = request_api(url1,url2)
         total_pages = src.get('total_pages', 0)
@@ -97,9 +114,20 @@ def tv_shows_premiere_api(page):
     except:
         return 0,False
 
-def tv_shows_trending_api(page):
+def tv_shows_popular_api(page):
     url1 = 'https://api.themoviedb.org/3/tv/popular?api_key={0}&page={1}&language='.format(API_KEY1,str(page)) + AutoTranslate.language('lang-api')
     url2 = 'https://api.themoviedb.org/3/tv/popular?api_key={0}&page={1}&language='.format(API_KEY2,str(page)) + AutoTranslate.language('lang-api')
+    try:
+        src = request_api(url1,url2)
+        total_pages = src.get('total_pages', 0)
+        results = src.get('results', False)
+        return total_pages,results
+    except:
+        return 0,False
+
+def tv_shows_toprated_api(page):
+    url1 = 'https://api.themoviedb.org/3/tv/top_rated?api_key={0}&page={1}&language='.format(API_KEY1,str(page)) + AutoTranslate.language('lang-api')
+    url2 = 'https://api.themoviedb.org/3/tv/top_rated?api_key={0}&page={1}&language='.format(API_KEY2,str(page)) + AutoTranslate.language('lang-api')
     try:
         src = request_api(url1,url2)
         total_pages = src.get('total_pages', 0)
