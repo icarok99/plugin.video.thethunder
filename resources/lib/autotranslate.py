@@ -3,7 +3,7 @@ import os
 from kodi_helper import requests, myAddon
 import sys
 import re
-addonId = re.search('plugin\://(.+?)/',str(sys.argv[0])).group(1)
+addonId = re.search('plugin://(.+?)/',str(sys.argv[0])).group(1)
 addon = myAddon(addonId)
 profile = addon.profile
 
@@ -80,7 +80,12 @@ class AutoTranslate:
                 'IMDb not found': 'IMDb não encontrado',
                 'Failed to resolve link': 'Falha ao resolver link',
                 'If you like this add-on, support via PIX above': 'Se você gostou deste add-on, apoie via PIX acima',
-                'Press BACK to exit': 'Pressione VOLTAR para sair'
+                'Press BACK to exit': 'Pressione VOLTAR para sair',
+                'InputStream Adaptive is required but not installed': 'O InputStream Adaptive é necessário, mas não está instalado',
+                'Not available': 'Não disponível',
+                'Failed to load details': 'Falha ao carregar detalhes',
+                'Error trying to play': 'Erro ao tentar reproduzir',
+                'InputStream FFMpeg Direct is required but not installed': 'O InputStream FFMpeg Direct é necessário, mas não está instalado'
             }.get(key, 'Unknow')
         elif cls.country == 'PT':
             return {
@@ -114,7 +119,6 @@ class AutoTranslate:
                 'find_source': 'Procurando nas fontes',
                 'settings': 'Configurações',
                 'donation': 'Doação',
-                # ---- Novos textos ----
                 'Please enter a valid search term': 'Por favor insira um termo de pesquisa válido',
                 'No sources available': 'Nenhuma fonte disponível',
                 'Stream unavailable': 'Stream indisponível',
@@ -122,7 +126,12 @@ class AutoTranslate:
                 'IMDb not found': 'IMDb não encontrado',
                 'Failed to resolve link': 'Falha ao resolver link',
                 'If you like this add-on, support via PIX above': 'Se você gostou deste add-on, apoie via PIX acima',
-                'Press BACK to exit': 'Pressione VOLTAR para sair'
+                'Press BACK to exit': 'Pressione VOLTAR para sair',
+                'InputStream Adaptive is required but not installed': 'O InputStream Adaptive é necessário, mas não está instalado',
+                'Not available': 'Não disponível',
+                'Failed to load details': 'Falha ao carregar detalhes',
+                'Error trying to play': 'Erro ao tentar reproduzir',
+                'InputStream FFMpeg Direct is required but not installed': 'O InputStream FFMpeg Direct é necessário, mas não está instalado'
             }.get(key, 'Unknow')        
         else:
             return {
@@ -163,5 +172,10 @@ class AutoTranslate:
                 'IMDb not found': 'IMDb not found',
                 'Failed to resolve link': 'Failed to resolve link',
                 'If you like this add-on, support via PIX above': 'If you like this add-on, support via PIX above',
-                'Press BACK to exit': 'Press BACK to exit'
+                'Press BACK to exit': 'Press BACK to exit',
+                'InputStream Adaptive is required but not installed': 'InputStream Adaptive is required but not installed',
+                'Not available': 'Not available',
+                'Failed to load details': 'Failed to load details',
+                'Error trying to play': 'Error trying to play',
+                'InputStream FFMpeg Direct is required but not installed': 'InputStream FFMpeg Direct is required but not installed'
             }.get(key, 'Unknow')

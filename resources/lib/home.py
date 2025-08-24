@@ -4,7 +4,7 @@ import sys
 import re
 import xbmcaddon
 
-addonId = re.search('plugin\://(.+?)/', str(sys.argv[0])).group(1)
+addonId = re.search('plugin://(.+?)/', str(sys.argv[0])).group(1)
 addon = thunder(addonId)
 
 def router(params):
