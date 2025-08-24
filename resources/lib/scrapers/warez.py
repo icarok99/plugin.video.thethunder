@@ -6,6 +6,7 @@ import re
 import os
 import sys
 import json
+import urllib.parse
 import requests
 import resources.lib.jsunpack as jsunpack
 try:
@@ -31,36 +32,23 @@ class source:
     def warezcdn_servers(cls, imdb, season=False, episode=False):
         links = []
         if season and episode:
-            # get series page
             referer_url = 'https://embed.warezcdn.link/serie/%s' % (str(imdb))
             data = requests.get(referer_url).text
-
-            # extract url to get seasons information
             season_url = re.compile(r"var cachedSeasons\s*=\s*(?P<url>'(?:[^\']+)'|\"([^\"]+)\")", re.MULTILINE | re.DOTALL | re.IGNORECASE).findall(data)[0][1]
             season_url = 'https://embed.warezcdn.link/' + season_url
-
-            # get seasons information
             seasons_info = requests.get(season_url, headers={'Referer': referer_url}).json()['seasons']
-
-            # search for specified season and episode
             episode_info = {}
             for key in seasons_info.keys():
                 season_dict = seasons_info[key]
                 if season_dict['name'] == str(season):
-                    # search for specified episode
                     for key in season_dict['episodes'].keys():
                         episode_dict = season_dict['episodes'][key]
                         if episode_dict['name'] == str(episode):
                             episode_info = episode_dict
                             break
             
-            # request audio data
             request_url = 'https://embed.warezcdn.link/core/ajax.php?audios=%s' % episode_dict['id']
-
-            audio_ids = requests.get(
-                request_url,
-                headers={'Referer': referer_url}
-                ).json()
+            audio_ids = requests.get(request_url, headers={'Referer': referer_url}).json()
             audio_ids = json.loads(audio_ids)
                         
             if audio_ids:
@@ -69,41 +57,21 @@ class source:
                         lg = english
                     elif int(audio['audio']) == 2:
                         lg = portuguese
-
                     servers = ['warezcdn', 'mixdrop']
                     for server in servers:
                         if server in audio['servers']:
                             embed_referer_url = 'https://embed.warezcdn.link/getEmbed.php?id=%s&sv=%s&lang=%s' % (audio['id'], server, audio['audio'])
                             play_url = 'https://embed.warezcdn.link/getPlay.php?id=%s&sv=%s' % (audio['id'], server)
-
-                            # get referer urls to avoid bot detection
                             requests.get(referer_url)
-                            requests.get(
-                                embed_referer_url,
-                                headers={'Referer': referer_url}
-                                )
-                            
-                            # get embed play html
-                            play_response = requests.get(
-                                play_url,
-                                headers={'Referer': embed_referer_url}
-                                ).text
-
-                            # extract video url from play_response
+                            requests.get(embed_referer_url, headers={'Referer': referer_url})
+                            play_response = requests.get(play_url, headers={'Referer': embed_referer_url}).text
                             video_url = re.compile(r"window.location.href = (?:\'|\")(.+)(?:\'|\")").findall(play_response)[0]
-                            
-                            # save name and url to the list of links
                             name = server.upper() + ' - ' + lg
                             links.append((name, video_url))
 
         else:
-            # movie page url
             referer_url = 'https://embed.warezcdn.link/filme/%s' % imdb
-
-            # request html content of the movie page
             data = requests.get(referer_url).text
-
-            # extract audio data from the html content
             audio_ids = re.compile(r"let data = (?:\'|\")(\[.+\])(?:\'|\")").findall(data)
             audio_ids = json.loads(audio_ids[0])
             
@@ -113,34 +81,53 @@ class source:
                         lg = english
                     elif int(audio['audio']) == 2:
                         lg = portuguese
-
                     servers = ['warezcdn', 'mixdrop']
                     for server in servers:
                         if server in audio['servers']:
                             embed_referer_url = 'https://embed.warezcdn.link/getEmbed.php?id=%s&sv=%s&lang=%s' % (audio['id'], server, audio['audio'])
                             play_url = 'https://embed.warezcdn.link/getPlay.php?id=%s&sv=%s' % (audio['id'], server)
-
-                            # get referer urls to avoid bot detection
                             requests.get(referer_url)
-                            requests.get(
-                                embed_referer_url,
-                                headers={'Referer': referer_url}
-                                )
-                            
-                            # get embed play html
-                            play_response = requests.get(
-                                play_url,
-                                headers={'Referer': embed_referer_url}
-                                ).text
-
-                            # extract video url from play_response
+                            requests.get(embed_referer_url, headers={'Referer': referer_url})
+                            play_response = requests.get(play_url, headers={'Referer': embed_referer_url}).text
                             video_url = re.compile(r"window.location.href = (?:\'|\")(.+)(?:\'|\")").findall(play_response)[0]
-                            
-                            # save name and url to the list of links
                             name = server.upper() + ' - ' + lg
                             links.append((name, video_url))
 
         return links
+    
+    @classmethod
+    def extract_hls_streams(cls, master_url, headers=None):
+        streams = []
+        if not headers:
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0',
+                'Referer': 'https://embed.warezcdn.link/',
+                'Origin': 'https://basseqwevewcewcewecwcw.xyz'
+            }
+        
+        try:
+            response = requests.get(master_url, headers=headers, timeout=10)
+            response.raise_for_status()
+            master_content = response.text
+            lines = master_content.split('\n')
+            base_url = master_url.rsplit('/', 1)[0] + '/'
+            
+            for i, line in enumerate(lines):
+                line = line.strip()
+                if line and not line.startswith('#'):
+                    stream_url = line if line.startswith('http') else base_url + line
+                    stream_url = urllib.parse.quote(stream_url, safe=':/?&=%')
+                    quality = 'Auto'
+                    if i > 0 and lines[i-1].startswith('#EXT-X-STREAM-INF:'):
+                        resolution_match = re.search(r'RESOLUTION=(\d+)x(\d+)', lines[i-1])
+                        if resolution_match:
+                            quality = f"{resolution_match.group(1)}p"
+                    streams.append((quality, stream_url))
+                    
+        except:
+            streams.append(('Auto', urllib.parse.quote(master_url, safe=':/?&=%')))
+        
+        return streams
     
     @classmethod
     def search_movies(cls, imdb, year):
@@ -153,8 +140,9 @@ class source:
     def resolve_movies(cls, url):
         streams = []
         user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0"
+        origin_url = 'https://basseqwevewcewcewecwcw.xyz/'
+        
         if url:
-            # extract subtitles url
             try:
                 sub = url.split('http')[2]
                 sub = 'http%s' % sub
@@ -167,7 +155,6 @@ class source:
             except:
                 sub = ''
 
-            # extract video src
             try:
                 stream = url.split('?')[0]
             except:
@@ -176,57 +163,96 @@ class source:
                 except:
                     pass
             
-            # extract mp4 link from mixdrop
+            if 'master.txt' in stream or '.m3u8' in stream:
+                hls_streams = cls.extract_hls_streams(stream)
+                for quality, hls_url in hls_streams:
+                    final_url = f"{hls_url}|User-Agent={user_agent}&Referer=https://embed.warezcdn.link/&Origin={origin_url.rstrip('/')}"
+                    streams.append((final_url, sub, user_agent))
+                return streams
+            
             if 'mixdrop' in url:
                 try:
-                    # requests html for the video player on mixdrop
-                    video_html_response = requests.get(
-                        url,
-                        headers={"User-Agent": user_agent}
-                    )
-                    video_html_response = video_html_response.text
-                    
-                    # deobfuscate js code
+                    video_html_response = requests.get(url, headers={"User-Agent": user_agent}).text
                     js_matches = re.compile(r"eval\((.+)\)").findall(video_html_response)
                     for packed_js in js_matches:
                         if 'delivery' in packed_js:
                             mdcore = jsunpack.unpack(packed_js)
-                    
-                    stream = 'https:' + re.compile(r"MDCore.wurl=\"(.+?)\"").findall(mdcore)[0] +'|user-agent=%s' %user_agent
-
+                    stream = 'https:' + re.compile(r"MDCore.wurl=\"(.+?)\"").findall(mdcore)[0] + '|user-agent=%s' % user_agent
+                    streams.append((stream, sub, user_agent))
                 except:
                     pass
 
-            # extract m3u8 links from warezcdn
             else:
                 try:
-                    stream_data = re.compile(r"(https://.+/)video/(.+)").findall(stream)[0]
-                    host_url, video_id = stream_data
-
-                    # make request for master.m3u8 url based on data from video_html_url
-                    master_request_url = '%splayer/index.php?data=%s&do=getVideo' % (host_url, video_id)
-
-                    master_m3u8_url = requests.post(
-                        master_request_url,
-                        data={'hash': video_id, 'r': ''},
-                        headers={'X-Requested-With': 'XMLHttpRequest', 'Referer': 'https://embed.warezcdn.link/'},
-                        allow_redirects=True
-                    )
-                    master_m3u8_url = master_m3u8_url.text
-                    master_m3u8_url = json.loads(master_m3u8_url)['videoSource']
-
-                    # extract the url for the playlist containing all the parts from master.m3u8
-                    master_m3u8 = requests.get(master_m3u8_url, headers={'Referer': 'https://embed.warezcdn.link/'}).text
-                    for line in master_m3u8.split('\n'):
-                        matches = re.compile(r"https?://[a-zA-Z0-9.-]+(?:\.[a-zA-Z]{2,})(:\d+)?(/[^\s]*)?").match(line)
-                        if matches:
-                            stream = matches[0]
-                            break
+                    if 'player/index.php' in stream:
+                        video_id_match = re.search(r'data=([a-f0-9]+)', stream)
+                        if video_id_match:
+                            video_id = video_id_match.group(1)
+                            host_url = re.match(r'https?://([^/]+)', stream).group(0) + '/'
+                            master_request_url = stream
+                            master_response = requests.post(
+                                master_request_url,
+                                data={'hash': video_id, 'r': ''},
+                                headers={
+                                    'X-Requested-With': 'XMLHttpRequest',
+                                    'Referer': 'https://embed.warezcdn.link/',
+                                    'User-Agent': user_agent,
+                                    'Origin': origin_url.rstrip('/')
+                                },
+                                allow_redirects=True
+                            )
+                            if master_response.status_code == 200:
+                                master_data = master_response.json()
+                                if 'securedLink' in master_data and master_data['securedLink']:
+                                    final_url = f"{master_data['securedLink']}|User-Agent={user_agent}&Referer=https://embed.warezcdn.link/&Origin={origin_url.rstrip('/')}"
+                                    streams.append((final_url, sub, user_agent))
+                                    return streams
+                                elif 'videoSource' in master_data:
+                                    master_m3u8_url = master_data['videoSource']
+                                    hls_streams = cls.extract_hls_streams(master_m3u8_url)
+                                    for quality, hls_url in hls_streams:
+                                        final_url = f"{hls_url}|User-Agent={user_agent}&Referer=https://embed.warezcdn.link/&Origin={origin_url.rstrip('/')}"
+                                        streams.append((final_url, sub, user_agent))
+                                    return streams
+                    
+                    else:
+                        stream_data = re.compile(r"(https://.+/)video/(.+)").findall(stream)
+                        if stream_data:
+                            host_url, video_id = stream_data[0]
+                            master_request_url = f'{host_url}player/index.php?data={video_id}&do=getVideo'
+                            master_response = requests.post(
+                                master_request_url,
+                                data={'hash': video_id, 'r': ''},
+                                headers={
+                                    'X-Requested-With': 'XMLHttpRequest', 
+                                    'Referer': 'https://embed.warezcdn.link/',
+                                    'User-Agent': user_agent,
+                                    'Origin': origin_url.rstrip('/')
+                                },
+                                allow_redirects=True
+                            )
+                            if master_response.status_code == 200:
+                                master_data = master_response.json()
+                                if 'securedLink' in master_data and master_data['securedLink']:
+                                    final_url = f"{master_data['securedLink']}|User-Agent={user_agent}&Referer=https://embed.warezcdn.link/&Origin={origin_url.rstrip('/')}"
+                                    streams.append((final_url, sub, user_agent))
+                                    return streams
+                                elif 'videoSource' in master_data:
+                                    master_m3u8_url = master_data['videoSource']
+                                    hls_streams = cls.extract_hls_streams(master_m3u8_url)
+                                    for quality, hls_url in hls_streams:
+                                        final_url = f"{hls_url}|User-Agent={user_agent}&Referer=https://embed.warezcdn.link/&Origin={origin_url.rstrip('/')}"
+                                        streams.append((final_url, sub, user_agent))
+                                    return streams
+                            
                 except:
-                    pass
+                    final_url = f"{urllib.parse.quote(stream, safe=':/?&=%')}|User-Agent={user_agent}&Referer=https://embed.warezcdn.link/&Origin={origin_url.rstrip('/')}"
+                    streams.append((final_url, sub, user_agent))
 
-            # append results
-            streams.append((stream, sub, user_agent))
+            if not streams:
+                final_url = f"{urllib.parse.quote(stream, safe=':/?&=%')}|User-Agent={user_agent}&Referer=https://embed.warezcdn.link/&Origin={origin_url.rstrip('/')}"
+                streams.append((final_url, sub, user_agent))
+
         return streams
     
     @classmethod
@@ -240,8 +266,9 @@ class source:
     def resolve_tvshows(cls, url):
         streams = []
         user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0"
+        origin_url = 'https://basseqwevewcewcewecwcw.xyz/'
+        
         if url:
-            # extract subtitles url
             try:
                 sub = url.split('http')[2]
                 sub = 'http%s' % sub
@@ -254,7 +281,6 @@ class source:
             except:
                 sub = ''
 
-            # extract video src
             try:
                 stream = url.split('?')[0]
             except:
@@ -263,55 +289,87 @@ class source:
                 except:
                     pass
             
-            # extract mp4 link from mixdrop
             if 'mixdrop' in url:
                 try:
-                    # requests html for the video player on mixdrop
-                    video_html_response = requests.get(
-                        url,
-                        headers={"User-Agent": user_agent}
-                    )
-                    video_html_response = video_html_response.text
-                    
-                    # deobfuscate js code
+                    video_html_response = requests.get(url, headers={"User-Agent": user_agent}).text
                     js_matches = re.compile(r"eval\((.+)\)").findall(video_html_response)
                     for packed_js in js_matches:
                         if 'delivery' in packed_js:
                             mdcore = jsunpack.unpack(packed_js)
-                    
-                    stream = 'https:' + re.compile(r"MDCore.wurl=\"(.+?)\"").findall(mdcore)[0] +'|user-agent=%s' %user_agent
-
+                    stream = 'https:' + re.compile(r"MDCore.wurl=\"(.+?)\"").findall(mdcore)[0] + '|user-agent=%s' % user_agent
+                    streams.append((stream, sub, user_agent))
                 except:
                     pass
 
-            # extract m3u8 links from warezcdn
             else:
                 try:
-                    stream_data = re.compile(r"(https://.+/)video/(.+)").findall(stream)[0]
-                    host_url, video_id = stream_data
-
-                    # make request for master.m3u8 url based on data from video_html_url
-                    master_request_url = '%splayer/index.php?data=%s&do=getVideo' % (host_url, video_id)
-
-                    master_m3u8_url = requests.post(
-                        master_request_url,
-                        data={'hash': video_id, 'r': ''},
-                        headers={'X-Requested-With': 'XMLHttpRequest', 'Referer': 'https://embed.warezcdn.link/'},
-                        allow_redirects=True
-                    )
-                    master_m3u8_url = master_m3u8_url.text
-                    master_m3u8_url = json.loads(master_m3u8_url)['videoSource']
-
-                    # extract the url for the playlist containing all the parts from master.m3u8
-                    master_m3u8 = requests.get(master_m3u8_url, headers={'Referer': 'https://embed.warezcdn.link/'}).text
-                    for line in master_m3u8.split('\n'):
-                        matches = re.compile(r"https?://[a-zA-Z0-9.-]+(?:\.[a-zA-Z]{2,})(:\d+)?(/[^\s]*)?").match(line)
-                        if matches:
-                            stream = matches[0]
-                            break
+                    if 'player/index.php' in stream:
+                        video_id_match = re.search(r'data=([a-f0-9]+)', stream)
+                        if video_id_match:
+                            video_id = video_id_match.group(1)
+                            host_url = re.match(r'https?://([^/]+)', stream).group(0) + '/'
+                            master_request_url = stream
+                            master_response = requests.post(
+                                master_request_url,
+                                data={'hash': video_id, 'r': ''},
+                                headers={
+                                    'X-Requested-With': 'XMLHttpRequest',
+                                    'Referer': 'https://embed.warezcdn.link/',
+                                    'User-Agent': user_agent,
+                                    'Origin': origin_url.rstrip('/')
+                                },
+                                allow_redirects=True
+                            )
+                            if master_response.status_code == 200:
+                                master_data = master_response.json()
+                                if 'securedLink' in master_data and master_data['securedLink']:
+                                    final_url = f"{master_data['securedLink']}|User-Agent={user_agent}&Referer=https://embed.warezcdn.link/&Origin={origin_url.rstrip('/')}"
+                                    streams.append((final_url, sub, user_agent))
+                                    return streams
+                                elif 'videoSource' in master_data:
+                                    master_m3u8_url = master_data['videoSource']
+                                    hls_streams = cls.extract_hls_streams(master_m3u8_url)
+                                    for quality, hls_url in hls_streams:
+                                        final_url = f"{hls_url}|User-Agent={user_agent}&Referer=https://embed.warezcdn.link/&Origin={origin_url.rstrip('/')}"
+                                        streams.append((final_url, sub, user_agent))
+                                    return streams
+                    
+                    else:
+                        stream_data = re.compile(r"(https://.+/)video/(.+)").findall(stream)
+                        if stream_data:
+                            host_url, video_id = stream_data[0]
+                            master_request_url = f'{host_url}player/index.php?data={video_id}&do=getVideo'
+                            master_response = requests.post(
+                                master_request_url,
+                                data={'hash': video_id, 'r': ''},
+                                headers={
+                                    'X-Requested-With': 'XMLHttpRequest',
+                                    'Referer': 'https://embed.warezcdn.link/',
+                                    'User-Agent': user_agent,
+                                    'Origin': origin_url.rstrip('/')
+                                },
+                                allow_redirects=True
+                            )
+                            if master_response.status_code == 200:
+                                master_data = master_response.json()
+                                if 'securedLink' in master_data and master_data['securedLink']:
+                                    final_url = f"{master_data['securedLink']}|User-Agent={user_agent}&Referer=https://embed.warezcdn.link/&Origin={origin_url.rstrip('/')}"
+                                    streams.append((final_url, sub, user_agent))
+                                    return streams
+                                elif 'videoSource' in master_data:
+                                    master_m3u8_url = master_data['videoSource']
+                                    hls_streams = cls.extract_hls_streams(master_m3u8_url)
+                                    for quality, hls_url in hls_streams:
+                                        final_url = f"{hls_url}|User-Agent={user_agent}&Referer=https://embed.warezcdn.link/&Origin={origin_url.rstrip('/')}"
+                                        streams.append((final_url, sub, user_agent))
+                                    return streams
+                            
                 except:
-                    pass
+                    final_url = f"{urllib.parse.quote(stream, safe=':/?&=%')}|User-Agent={user_agent}&Referer=https://embed.warezcdn.link/&Origin={origin_url.rstrip('/')}"
+                    streams.append((final_url, sub, user_agent))
 
-            # append results
-            streams.append((stream, sub, user_agent))
+            if not streams:
+                final_url = f"{urllib.parse.quote(stream, safe=':/?&=%')}|User-Agent={user_agent}&Referer=https://embed.warezcdn.link/&Origin={origin_url.rstrip('/')}"
+                streams.append((final_url, sub, user_agent))
+
         return streams
