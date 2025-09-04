@@ -3,7 +3,7 @@ import os
 from kodi_helper import requests, myAddon
 import sys
 import re
-addonId = re.search('plugin\://(.+?)/',str(sys.argv[0])).group(1)
+addonId = re.search('plugin://(.+?)/',str(sys.argv[0])).group(1)
 addon = myAddon(addonId)
 profile = addon.profile
 
@@ -56,7 +56,7 @@ class AutoTranslate:
                 'Search': 'Pesquisar',
                 'New tv shows': 'Novas séries',
                 'New episodes': 'Novos episódios',
-                'Page': 'Pagina ',
+                'Page': 'Página ',
                 'of': ' de ',
                 'Portuguese': 'DUBLADO',
                 'Portuguese2': 'Dublado',
@@ -80,7 +80,12 @@ class AutoTranslate:
                 'IMDb not found': 'IMDb não encontrado',
                 'Failed to resolve link': 'Falha ao resolver link',
                 'If you like this add-on, support via PIX above': 'Se você gostou deste add-on, apoie via PIX acima',
-                'Press BACK to exit': 'Pressione VOLTAR para sair'
+                'Press BACK to exit': 'Pressione VOLTAR para sair',
+                'Error playing': 'Erro ao reproduzir',
+                'Failed to load details': 'Falha ao carregar detalhes',
+                'Specials': 'Especiais',
+                'Season': 'temporada',
+                'Episode': 'episódio',
             }.get(key, 'Unknow')
         elif cls.country == 'PT':
             return {
@@ -97,7 +102,7 @@ class AutoTranslate:
                 'Search': 'Pesquisar',
                 'New tv shows': 'Novas séries',
                 'New episodes': 'Novos episódios',
-                'Page': 'Pagina ',
+                'Page': 'Página ',
                 'of': ' de ',
                 'Portuguese': 'DUBLADO',
                 'Portuguese2': 'Dublado',
@@ -114,7 +119,6 @@ class AutoTranslate:
                 'find_source': 'Procurando nas fontes',
                 'settings': 'Configurações',
                 'donation': 'Doação',
-                # ---- Novos textos ----
                 'Please enter a valid search term': 'Por favor insira um termo de pesquisa válido',
                 'No sources available': 'Nenhuma fonte disponível',
                 'Stream unavailable': 'Stream indisponível',
@@ -122,7 +126,12 @@ class AutoTranslate:
                 'IMDb not found': 'IMDb não encontrado',
                 'Failed to resolve link': 'Falha ao resolver link',
                 'If you like this add-on, support via PIX above': 'Se você gostou deste add-on, apoie via PIX acima',
-                'Press BACK to exit': 'Pressione VOLTAR para sair'
+                'Press BACK to exit': 'Pressione VOLTAR para sair',
+                'Error playing': 'Erro ao reproduzir',
+                'Failed to load details': 'Falha ao carregar detalhes',
+                'Specials': 'Especiais',
+                'Season': 'Temporada',
+                'Episode': 'Episódio',
             }.get(key, 'Unknow')        
         else:
             return {
@@ -163,5 +172,10 @@ class AutoTranslate:
                 'IMDb not found': 'IMDb not found',
                 'Failed to resolve link': 'Failed to resolve link',
                 'If you like this add-on, support via PIX above': 'If you like this add-on, support via PIX above',
-                'Press BACK to exit': 'Press BACK to exit'
+                'Press BACK to exit': 'Press BACK to exit',
+                'Error playing': 'Error playing',
+                'Failed to load details': 'Failed to load details',
+                'Specials': 'Specials',
+                'Season': 'Season',
+                'Episode': 'Episode',
             }.get(key, 'Unknow')
