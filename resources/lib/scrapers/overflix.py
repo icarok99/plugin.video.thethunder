@@ -54,7 +54,6 @@ class source:
     def find_brazil_title(cls, imdb):
         url = f'https://www.imdb.com/title/{imdb}/releaseinfo'
         try:
-            logger.debug(f"Fetching Brazil title for IMDb ID {imdb}")
             r = cfscraper.get(url)
             if not r or r.status_code != 200:
                 return ''
@@ -73,7 +72,6 @@ class source:
     def find_title(cls, imdb):
         url = f'https://www.imdb.com/title/{imdb}'
         try:
-            logger.debug(f"Fetching title for IMDb ID {imdb}")
             r = cfscraper.get(url)
             if not r or r.status_code != 200:
                 return ''
@@ -112,7 +110,6 @@ class source:
             'Referer': cls.__site_url__[-1]
         }
         try:
-            logger.debug(f"Fetching referer URL {referer_url}")
             requests.get(referer_url, headers=headers)
         except Exception:
             pass
@@ -121,7 +118,6 @@ class source:
             'Referer': cls.__site_url__[-1]
         }
         try:
-            logger.debug(f"Fetching getembed URL {getembed_url}")
             r1 = requests.get(getembed_url, headers=headers_embed)
             if r1.status_code != 200:
                 return None
@@ -131,7 +127,6 @@ class source:
         sv = meta.get('sv')
         play_url = f"https://etv-embed.help/e/getplay.php?id={id_}&sv={sv}"
         try:
-            logger.debug(f"Fetching play URL {play_url}")
             r2 = requests.get(play_url, headers={'User-Agent': USER_AGENT, 'Referer': getembed_url}, allow_redirects=True)
             if r2.status_code != 200:
                 return None
@@ -178,7 +173,6 @@ class source:
         try:
             query = quote_plus(cls.normalize_title(title))
             search_url = cls.__site_url__[-1].rstrip('/') + '/pesquisar/?p=' + query
-            logger.debug(f"Searching movies with URL {search_url}")
             r = cfscraper.get(search_url)
             if not r or r.status_code != 200 or "captcha" in r.text.lower():
                 return links
@@ -199,7 +193,6 @@ class source:
                     except Exception:
                         pass
             if not movie_url:
-                logger.debug(f"No matching movie found for {title} ({year})")
                 return links
             movie_urls = {}
             t0 = cls.normalize_title(title)
@@ -235,13 +228,11 @@ class source:
                         lang_url = lang_url + sep + 'area=online'
                 else:
                     lang_url = f"{movie_url}?area=online&audio={lang}"
-                logger.debug(f"Fetching language URL {lang_url} for {lang}")
                 rlang = cfscraper.get(lang_url, headers={'Referer': cls.__site_url__[-1]})
                 if not rlang or rlang.status_code != 200 or "captcha" in rlang.text.lower():
                     continue
                 embeds = cls._extract_embeds_from_page(rlang.text)
                 if not embeds:
-                    logger.debug(f"No embeds found for {lang_url}")
                     continue
                 for server_name, getembed_url, meta in embeds:
                     final_video = cls._get_play_url(referer_url=lang_url, getembed_url=getembed_url, meta=meta)
@@ -261,7 +252,6 @@ class source:
         try:
             query = quote_plus(cls.normalize_title(title))
             search_url = cls.__site_url__[-1].rstrip('/') + '/pesquisar/?p=' + query
-            logger.debug(f"Searching TV shows with URL {search_url}")
             r = cfscraper.get(search_url)
             if not r or r.status_code != 200 or "captcha" in r.text.lower():
                 return links
@@ -287,7 +277,6 @@ class source:
                         elif 'legendado' in href.lower():
                             series_urls['legendado'] = href
             if not series_urls:
-                logger.debug(f"No matching series found for {title} ({year})")
                 return links
             embeds_final = []
             languages = ['dublado', 'legendado']
@@ -295,7 +284,6 @@ class source:
                 series_url = series_urls.get(lang)
                 if not series_url:
                     continue
-                logger.debug(f"Fetching series URL {series_url} for {lang}")
                 r = cfscraper.get(series_url, headers={'Referer': cls.__site_url__[-1]})
                 if not r or r.status_code != 200 or "captcha" in r.text.lower():
                     continue
@@ -315,17 +303,14 @@ class source:
                             episode_url = href
                             break
                 if not episode_url:
-                    logger.debug(f"No matching episode found for {title} S{season}E{episode} ({lang})")
                     continue
                 lang_label = portuguese if lang == 'dublado' else english
                 lang_url = episode_url
-                logger.debug(f"Fetching episode URL {lang_url} for {lang}")
                 rlang = cfscraper.get(lang_url, headers={'Referer': cls.__site_url__[-1]})
                 if not rlang or rlang.status_code != 200 or "captcha" in rlang.text.lower():
                     continue
                 embeds = cls._extract_embeds_from_page(rlang.text)
                 if not embeds:
-                    logger.debug(f"No embeds found for {lang_url}")
                     continue
                 for server_name, getembed_url, meta in embeds:
                     final_video = cls._get_play_url(referer_url=lang_url, getembed_url=getembed_url, meta=meta)
