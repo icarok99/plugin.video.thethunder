@@ -1,8 +1,9 @@
 # resources/lib/update.py
 # -*- coding: utf-8 -*-
 '''
-Atualização automática dos scrapers
-Executado toda vez que o addon é aberto
+Atualização automática baseada em last_update.txt
+Formato da data: DD/MM/YYYY
+Arquivo local: .update
 '''
 
 import os
@@ -14,91 +15,130 @@ from urllib.request import urlopen, Request
 from contextlib import closing
 
 ADDON = xbmcaddon.Addon()
-ADDON_PATH = ADDON.getAddonInfo('path')
-SCRAPERS_PATH = xbmcvfs.translatePath(os.path.join(ADDON_PATH, 'resources', 'lib', 'scrapers'))
-COMMIT_FILE = os.path.join(SCRAPERS_PATH, '.scraper_commit')
+ADDON_PATH = ADDON.getAddonInfo("path")
+SCRAPERS_PATH = xbmcvfs.translatePath(os.path.join(ADDON_PATH, "resources", "lib", "scrapers"))
 
-GITHUB_USER = "icarok99"
-GITHUB_REPO = "plugin.video.thethunder"
-GITHUB_BRANCH = "main"
-RAW_BASE = f"https://raw.githubusercontent.com/{GITHUB_USER}/{GITHUB_REPO}/{GITHUB_BRANCH}/resources/lib/scrapers"
-API_COMMIT = f"https://api.github.com/repos/{GITHUB_USER}/{GITHUB_REPO}/commits/{GITHUB_BRANCH}"
+# Arquivo local com a data instalada
+LOCAL_VERSION = os.path.join(SCRAPERS_PATH, ".update")
 
-USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+# Arquivo remoto com a data disponível
+REMOTE_VERSION_URL = "https://raw.githubusercontent.com/icarok99/plugin.video.thethunder/refs/heads/main/last_update.txt"
+
+# API para listar arquivos da pasta scrapers no repositório
+REMOTE_TREE_URL = "https://api.github.com/repos/icarok99/plugin.video.thethunder/git/trees/main?recursive=1"
+
+# Base para baixar os scrapers
+RAW_BASE = "https://raw.githubusercontent.com/icarok99/plugin.video.thethunder/main/resources/lib/scrapers"
+
+USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
 
 def log(msg):
     xbmc.log(f"[TheThunder AutoUpdate] {msg}", xbmc.LOGINFO)
 
-def get_latest_sha():
+# -------------------------------
+# Download HTTP
+# -------------------------------
+def http_get(url, binary=False):
     try:
-        req = Request(API_COMMIT, headers={'User-Agent': USER_AGENT})
+        req = Request(url, headers={"User-Agent": USER_AGENT})
         with closing(urlopen(req)) as r:
-            return json.loads(r.read().decode())['sha']
+            data = r.read()
+            return data if binary else data.decode("utf-8").strip()
     except Exception as e:
-        log(f"Erro ao obter commit: {e}")
+        log(f"Erro ao baixar {url}: {e}")
         return None
 
-def get_local_sha():
-    if not xbmcvfs.exists(COMMIT_FILE):
+# -------------------------------
+# Versão local
+# -------------------------------
+def get_local_version():
+    if not xbmcvfs.exists(LOCAL_VERSION):
         return None
     try:
-        with open(xbmcvfs.translatePath(COMMIT_FILE), 'r') as f:
+        with open(LOCAL_VERSION, "r") as f:
             return f.read().strip()
     except:
         return None
 
-def save_sha(sha):
+def save_local_version(ver):
     try:
-        with open(xbmcvfs.translatePath(COMMIT_FILE), 'w') as f:
-            f.write(sha)
+        with open(LOCAL_VERSION, "w") as f:
+            f.write(ver)
     except:
         pass
 
-def download_file(filename):
-    url = f"{RAW_BASE}/{filename}"
-    try:
-        req = Request(url, headers={'User-Agent': USER_AGENT})
-        with closing(urlopen(req)) as r:
-            return r.read()
-    except Exception as e:
-        log(f"Erro ao baixar {filename}: {e}")
+# -------------------------------
+# Versão remota
+# -------------------------------
+def get_remote_version():
+    return http_get(REMOTE_VERSION_URL)
+
+# -------------------------------
+# Lista arquivos remotos na pasta scrapers
+# -------------------------------
+def list_remote_scrapers():
+    tree = http_get(REMOTE_TREE_URL)
+    if not tree:
         return None
 
-def auto_update_scrapers(silent=True):
-    latest = get_latest_sha()
-    if not latest:
-        return False
-
-    local = get_local_sha()
-    if local == latest:
-        return False
-
-    # Lista arquivos no GitHub
     try:
-        req = Request(API_COMMIT, headers={'User-Agent': USER_AGENT})
-        with closing(urlopen(req)) as r:
-            tree_sha = json.loads(r.read().decode())['commit']['tree']['sha']
-        tree_url = f"https://api.github.com/repos/{GITHUB_USER}/{GITHUB_REPO}/git/trees/{tree_sha}?recursive=1"
-        req = Request(tree_url, headers={'User-Agent': USER_AGENT})
-        with closing(urlopen(req)) as r:
-            files = [item['path'].split('/')[-1] for item in json.loads(r.read().decode())['tree']
-                     if item['path'].startswith('resources/lib/scrapers/') and item['type'] == 'blob']
+        data = json.loads(tree)
+        files = []
+
+        for item in data.get("tree", []):
+            if item["path"].startswith("resources/lib/scrapers/") and item["type"] == "blob":
+                fname = item["path"].split("/")[-1]
+                # Ignorar arquivos que não devem ser atualizados
+                if fname not in ["__init__.py", ".update"]:
+                    files.append(fname)
+
+        return files
+
     except Exception as e:
-        log(f"Erro ao listar arquivos: {e}")
+        log(f"Erro ao processar lista de arquivos: {e}")
+        return None
+
+# -------------------------------
+# Atualização principal
+# -------------------------------
+def auto_update():
+    remote_version = get_remote_version()
+    if not remote_version:
+        log("Falha ao obter versão remota")
+        return False
+
+    local_version = get_local_version()
+
+    if local_version == remote_version:
+        log("Scrapers já estão atualizados")
+        return False
+
+    log(f"Nova atualização encontrada: {remote_version}")
+
+    files = list_remote_scrapers()
+    if not files:
+        log("Não foi possível listar os scrapers remotos")
         return False
 
     updated = 0
+
     for fname in files:
-        if fname in ['__init__.py', '.scraper_commit']:
-            continue
-        content = download_file(fname)
-        if content is not None:
-            path = os.path.join(SCRAPERS_PATH, fname)
-            with open(xbmcvfs.translatePath(path), 'wb') as f:
-                f.write(content)
-            updated += 1
+        url = f"{RAW_BASE}/{fname}"
+        content = http_get(url, binary=True)
+
+        if content:
+            dest = os.path.join(SCRAPERS_PATH, fname)
+            try:
+                with open(dest, "wb") as f:
+                    f.write(content)
+                updated += 1
+            except Exception as e:
+                log(f"Erro ao salvar {fname}: {e}")
 
     if updated > 0:
-        save_sha(latest)
-        log(f"Atualizados {updated} scrapers")
-    return updated > 0
+        save_local_version(remote_version)
+        log(f"{updated} scrapers atualizados para a versão {remote_version}")
+    else:
+        log("Nenhum scraper foi atualizado")
+
+    return True
