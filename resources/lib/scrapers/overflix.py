@@ -14,6 +14,7 @@ import os
 import sys
 import re
 import difflib
+from urllib.parse import urlparse
 
 try:
     from resources.lib.autotranslate import AutoTranslate
@@ -92,10 +93,17 @@ class source:
     def _extract_embeds_from_page(cls, html):
         embeds = []
         soup = BeautifulSoup(html, 'html.parser')
+
+        # Extrair o embed_base dinamicamente do JavaScript na página
+        embed_base_match = re.search(r'append\(\'<iframe src="([^"]+?)/e/getembed\.php', html)
+        embed_base = embed_base_match.group(1) if embed_base_match else "https://etv-embed.cfd"
+
+        # Extrair token
         token = 'cfxp594cpa4to'
         token_match = re.search(r'token\s*=\s*["\']([^"\']+)["\']', html)
         if token_match:
             token = token_match.group(1)
+
         player_divs = soup.find_all('div', class_='item', onclick=re.compile(r'GetIframe\([^)]+\)'))
         for div in player_divs:
             onclick = div.get('onclick', '')
@@ -103,36 +111,28 @@ class source:
             if not match:
                 continue
             player_id, server = match.groups()
-            getembed = f"https://etv-embed.mom/e/getembed.php?sv={server}&id={player_id}&site=overflix&token={token}"
+            getembed = f"{embed_base}/e/getembed.php?sv={server}&id={player_id}&site=overflix&token={token}"
             server_name = server.upper()
             embeds.append((server_name, getembed, {'id': player_id, 'sv': server, 'token': token}))
         return embeds
 
     @classmethod
     def _get_play_url(cls, referer_url, getembed_url, meta):
-        headers = {
-            'User-Agent': USER_AGENT,
-            'Referer': cls.__site_url__[-1]
-        }
-        try:
-            requests.get(referer_url, headers=headers)
-        except:
-            pass
-        headers_embed = {
-            'User-Agent': USER_AGENT,
-            'Referer': cls.__site_url__[-1]
-        }
-        try:
-            r1 = requests.get(getembed_url, headers=headers_embed)
-            if r1.status_code != 200:
-                return None
-        except:
-            return None
+        # Extrair base_url de getembed_url
+        parsed = urlparse(getembed_url)
+        base_url = parsed.scheme + '://' + parsed.netloc
+
+        # Construir play_url diretamente
         id_ = meta.get('id')
         sv = meta.get('sv')
-        play_url = f"https://etv-embed.mom/e/getplay.php?id={id_}&sv={sv}"
+        play_url = f"{base_url}/e/getplay.php?id={id_}&sv={sv}"
+
+        headers = {
+            'User-Agent': USER_AGENT,
+            'Referer': getembed_url  # Usar getembed_url como Referer sem fazer requisição a ela
+        }
         try:
-            r2 = requests.get(play_url, headers={'user-agent': USER_AGENT, 'Referer': getembed_url}, allow_redirects=True)
+            r2 = requests.get(play_url, headers=headers, allow_redirects=True)
             if r2.status_code != 200:
                 return None
             if r2.history:
