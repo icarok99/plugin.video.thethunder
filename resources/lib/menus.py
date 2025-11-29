@@ -1,4 +1,4 @@
- # -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 import os
 import re
@@ -55,22 +55,20 @@ class thunder(myAddon):
     def notify_stream_unavailable(self):
         self.notify(AutoTranslate.language("Stream unavailable"))
 
-    # CORREÇÃO DEFINITIVA DO IDIOMA (funciona em qualquer dispositivo)
+    # LEITURA CORRETA DO IDIOMA (FUNCIONA EM TODOS OS DISPOSITIVOS)
     def get_preferred_language(self):
         try:
             addon = xbmcaddon.Addon()
             valor = addon.getSetting("preferred_language")
-            log(f"[IDIOMA] Valor lido do settings.xml → '{valor}' (tipo: {type(valor)})")
+            log(f"[IDIOMA] Configuração lida → '{valor}'")
             if valor == "0":
-                result = AutoTranslate.language("Portuguese")   # DUBLADO
-                log("[IDIOMA] Interpretação final: DUBLADO")
-                return result
+                log("[IDIOMA] → DUBLADO selecionado")
+                return AutoTranslate.language("Portuguese")
             else:
-                result = AutoTranslate.language("English")      # LEGENDADO
-                log("[IDIOMA] Interpretação final: LEGENDADO")
-                return result
+                log("[IDIOMA] → LEGENDADO selecionado")
+                return AutoTranslate.language("English")
         except Exception as e:
-            log(f"[IDIOMA] ERRO ao ler preferência: {e} → usando DUBLADO como padrão")
+            log(f"[IDIOMA] Erro ao ler configuração: {e} → usando DUBLADO como padrão")
             return AutoTranslate.language("Portuguese")
 
     def stop_if_playing(self):
@@ -100,38 +98,52 @@ class thunder(myAddon):
 
     def is_auto_play_enabled(self):
         try:
+            addon = xbmcaddon.Addon()
             return xbmcaddon.Addon().getSetting("auto_play_enabled") == "true"
         except Exception:
             return False
 
-    # SISTEMA DE PONTUAÇÃO + DEBUG (nunca mais escolhe idioma errado)
+    # VERSÃO FINAL E PERFEITA DO AUTOPLAY (rápida + idioma respeitado + hosts bons)
     def try_resolve_with_fallback(self, menus_links, season=None, episode=None):
         if not menus_links:
             log("Nenhum link encontrado pelo scraper")
             return None, None
 
         preferred_lang = self.get_preferred_language().upper()
-        log(f"Preferência de idioma configurada: {preferred_lang}")
+        log(f"Preferência de idioma: {preferred_lang}")
 
-        def get_priority_score(label):
-            if not label:
-                return 0
-            u = label.upper()
-            if preferred_lang == "DUBLADO":
-                if any(x in u for x in ["DUBLADO", "DUB", "PT-BR", "PORTUGUÊS", "PTBR"]):
-                    return 100
-            else:  # LEGENDADO
-                if any(x in u for x in ["LEGENDADO", "LEG", "SUB", "INGLÊS", "ENGLISH", "SUBTITLED"]):
-                    return 100
-            return 0
+        # Hosts que funcionam bem sem InputStream (ordem de velocidade/estabilidade)
+        TOP_HOSTS = ["FILEMOON", "MIXDROP", "DOODSTREAM", "DOODSTREAM", "WAREZCDN"]
 
-        sorted_links = sorted(menus_links, key=lambda x: get_priority_score(x[0]), reverse=True)
+        def get_priority_score(label, url=""):
+            label_u = (label or "").upper()
+            score = 0
 
-        log(f"Total de links encontrados: {len(menus_links)}")
-        for i, (name, url) in enumerate(sorted_links):
-            score = get_priority_score(name)
-            status = "IDIOMA PREFERIDO" if score == 100 else "idioma alternativo"
-            log(f"  [{i+1}] {name}  →  Score: {score} ({status})")
+            # 1. Idioma preferido = +1000 pontos
+            if "DUBLADO" in preferred_lang or "PORTUGUÊS" in preferred_lang:
+                if any(x in label_u for x in ["DUBLADO", "DUB", "PT-BR", "PORTUGUÊS", "PTBR"]):
+                    score += 1000
+            else:
+                if any(x in label_u for x in ["LEGENDADO", "LEG", "SUB", "INGLÊS", "ENGLISH", "SUBTITLED"]):
+                    score += 1000
+
+            # 2. Host bom = +100 a +10 pontos
+            url_lower = url.lower() if url else ""
+            for i, host in enumerate(TOP_HOSTS):
+                if host in label_u or host.lower() in url_lower:
+                    score += (len(TOP_HOSTS) - i) * 10
+                    break
+
+            return score
+
+        # Ordena perfeitamente
+        sorted_links = sorted(menus_links, key=lambda x: get_priority_score(x[0], x[1]), reverse=True)
+
+        log(f"Total de links: {len(sorted_links)}. Iniciando autoplay otimizado...")
+        for i, (name, _) in enumerate(sorted_links[:12], 1):
+            score = get_priority_score(name, _)
+            lang = "DUBLADO" if score >= 1000 else "LEGENDADO"
+            log(f"  [{i:2d}] {name[:55]:55} → {score:4} pts ({lang})")
 
         tried = set()
         for name, url in sorted_links:
@@ -145,34 +157,30 @@ class thunder(myAddon):
                     continue
                 tried.add(final_url)
 
-                log(f"Tentando resolver: {name} → {final_url[:80]}...")
+                log(f"Tentando → {name}")
                 stream, sub = sources.select_resolver(final_url, season, episode)
                 if stream:
-                    log(f"SUCESSO! Reproduzindo: {name}")
+                    log(f"REPRODUZINDO → {name}")
                     return stream, sub
                 else:
-                    log(f"Falhou ao resolver: {name}")
+                    log(f"Falhou → {name}")
             except Exception as e:
-                log(f"Erro ao tentar resolver {name}: {str(e)}")
+                log(f"Erro ao tentar {name}: {e}")
                 continue
 
-        log("Nenhum link conseguiu ser resolvido")
+        log("Nenhum link resolveu")
         return None, None
 
     def auto_play_preferred_language(self, imdb, year, season, episode, video_title, genre, iconimage, fanart, description):
-        log(f"=== INICIANDO AUTOPLAY ===")
-        log(f"Título: {video_title} | IMDb: {imdb} | S{season}E{episode if season else ''}")
-
+        log(f"=== AUTOPLAY INICIADO === {video_title}")
         try:
             menus_links = sources.show_content(imdb, year, season, episode)
             if not menus_links:
-                log("show_content() retornou vazio")
                 self.notify_no_sources()
                 return False
 
             stream, sub = self.try_resolve_with_fallback(menus_links, season, episode)
             if not stream:
-                log("Nenhum stream válido após todas as tentativas")
                 self.notify_stream_unavailable()
                 return False
 
@@ -185,9 +193,9 @@ class thunder(myAddon):
                 else:
                     episode_title = f"{AutoTranslate.language('Episode')} {episode}"
 
-            list_item = xbmcgui.ListItem(label=episode_title if season and episode else video_title)
-            list_item.setArt({'thumb': iconimage, 'icon': iconimage, 'fanart': fanart})
-            info_tag = list_item.getVideoInfoTag()
+            li = xbmcgui.ListItem(label=episode_title if season and episode else video_title)
+            li.setArt({'thumb': iconimage, 'icon': iconimage, 'fanart': fanart})
+            info_tag = li.getVideoInfoTag()
             if season and episode:
                 info_tag.setTitle(episode_title)
                 info_tag.setTvShowTitle(showtitle)
@@ -199,15 +207,13 @@ class thunder(myAddon):
                 info_tag.setMediaType('movie')
 
             if sub:
-                list_item.setSubtitles([sub])
-
-            list_item.setPath(stream)
-            xbmc.Player().play(stream, list_item)
+                li.setSubtitles([sub])
+            li.setPath(stream)
+            xbmc.Player().play(stream, li)
             log("Reprodução iniciada com sucesso!")
             return True
-
         except Exception as e:
-            log(f"Erro crítico no autoplay: {str(e)}")
+            log(f"Erro crítico no autoplay: {e}")
             self.notify(f"{AutoTranslate.language('Error trying to auto-play')}: {e}")
             return False
 
