@@ -36,6 +36,10 @@ def import_scripts(pasta):
                 source_enabled = False
             elif script == 'overflix' and addon_instance.getSetting('source_overflix') != 'true':
                 source_enabled = False
+            elif script == 'assistirbiz' and addon_instance.getSetting('source_assistirbiz') != 'true':
+                source_enabled = False
+            elif script == 'goflix' and addon_instance.getSetting('source_goflix') != 'true':
+                source_enabled = False
 
         if source_enabled:
             if sys.version_info.major == 3:

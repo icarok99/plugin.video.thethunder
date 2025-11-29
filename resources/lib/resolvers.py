@@ -421,12 +421,103 @@ class Resolver:
         return stream
 
     @classmethod
+    def assistirbiz1(cls, url, referer):
+        stream = ''
+        try:
+            ua = cls.CHROME_USER_AGENT
+            headers = {"User-Agent": ua, "Referer": referer or url}
+
+            try:
+                r = requests.head(url, headers=headers, allow_redirects=True)
+                if "mediafire.com" in r.url:
+                    return r.url + cls.append_headers(headers), ''
+            except:
+                pass
+
+            r = requests.get(url, headers=headers, allow_redirects=True)
+            html = r.text
+
+            m = re.search(r'https://download\d+\.mediafire\.com/[^\s"\'<>]+\.mp4', html)
+            if m:
+                link = m.group(0)
+                return link + cls.append_headers(headers), ''
+
+            m2 = re.search(r'https?://(www\.)?mediafire\.com/[^\s"\'<>]+', html)
+            if m2:
+                return m2.group(0) + cls.append_headers(headers), ''
+
+        except Exception:
+            pass
+        return '', ''
+
+    @classmethod
+    def assistirbiz2(cls, url, referer):
+        try:
+            ua = cls.CHROME_USER_AGENT
+            headers = {"User-Agent": ua, "Referer": referer or url}
+
+            try:
+                r = requests.head(url, headers=headers, allow_redirects=True)
+                if "mv.astr.digital" in r.url or r.url.endswith(".mp4"):
+                    return r.url + cls.append_headers(headers), ''
+            except:
+                pass
+
+            r = requests.get(url, headers=headers, allow_redirects=True)
+            html = r.text
+
+            m = re.search(r'https?://mv\.astr\.digital/[^\s"\'<>]+', html)
+            if m:
+                return m.group(0) + cls.append_headers(headers), ''
+
+            m2 = re.search(r'https?://[^\s"\'<>]+\.mp4[^\s"\'<>]*', html)
+            if m2:
+                return m2.group(0) + cls.append_headers(headers), ''
+
+            m3 = re.search(r'"(https?://mv\.astr\.digital/[^\s"\']+)"', html)
+            if m3:
+                return m3.group(1) + cls.append_headers(headers), ''
+
+        except Exception:
+            pass
+        return '', ''
+
+    @classmethod
+    def assistirbiz3(cls, url, referer):
+        try:
+            if ".m3u8" not in url:
+                return '', ''
+
+            ua = cls.CHROME_USER_AGENT
+            headers = {"User-Agent": ua, "Referer": referer or url}
+
+            resolved = url + cls.append_headers(headers)
+            return resolved, ''
+
+        except:
+            return '', ''
+
+    @classmethod
     def resolverurls(cls, url, referer):
         stream = ''
         sub = ''
         parsed_url = urlparse(url)
         domain = parsed_url.netloc
-        domain = domain.replace('www.', '').replace('ww3.', '').replace('ww4.', '')
+
+        if ':' in domain:
+            domain = domain.split(':', 1)[0]
+
+        domain = domain.replace('www.', '').replace('ww3.', '').replace('ww4.', '').strip().lower()
+
+        assistirbiz1_domains = [
+            'assistir.biz'
+        ]
+        assistirbiz2_domains = [
+            'assistir.biz'
+        ]
+        assistirbiz3_domains = [
+            'hls.astr.digital', 'hls1.astr.digital', 'hls2.astr.digital', 'hls3.astr.digital', 'hls-proxy.astr.digital', 'hls2-proxy.astr.digital'
+        ]
         streamtape_domains = [
             'streamtape.com', 'strtape.cloud', 'streamtape.net', 'streamta.pe', 'streamtape.site',
             'strcloud.link', 'strcloud.club', 'strtpe.link', 'streamtape.cc', 'scloud.online', 'stape.fun',
@@ -460,6 +551,17 @@ class Resolver:
             'd-s.io', 'dsvplay.com'
         ]
         warez_domains = ["warezcdn.cc", "loldewfwvwvwewefdw.cyou"]
+
+        try:
+            if domain in assistirbiz3_domains:
+                return cls.assistirbiz3(url, referer)
+            if domain in assistirbiz2_domains and ('/selector' in url or 'selector?' in url):
+                return cls.assistirbiz2(url, referer)
+            if domain in assistirbiz1_domains and ('/direct/' in url or '/playserie/' in url or '/direct' in url):
+                return cls.assistirbiz1(url, referer)
+        except Exception:
+            pass
+
         if domain in streamtape_domains:
             stream = cls.resolve_streamtape(url, referer)
         elif domain in mixdrop_domains:
@@ -472,6 +574,7 @@ class Resolver:
             stream = cls.resolve_warezcdn(url, referer)
         elif domain in ['brplayer.site', 'watch.brplayer.site']:
             stream = cls.resolve_brplayer(url)
+
         return stream, sub
 
 def resolveurl(url, referer):
