@@ -5,8 +5,6 @@
         <import addon="script.module.kodi-helper" />
         <import addon="service.subtitles.legendei" />
         <import addon="xbmc.python" version="3.0.0" />
-        <import addon="inputstream.adaptive" />
-        <import addon="inputstream.ffmpegdirect" />
     </requires>
     <extension point="xbmc.python.pluginsource" library="thethunder.py">
         <provides>video</provides>
