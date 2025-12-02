@@ -113,7 +113,7 @@ class thunder(myAddon):
         log(f"Preferência de idioma: {preferred_lang}")
 
         # Hosts que funcionam bem sem InputStream (ordem de velocidade/estabilidade)
-        TOP_HOSTS = ["FILEMOON", "MIXDROP", "DOODSTREAM", "DOODSTREAM", "WAREZCDN"]
+        TOP_HOSTS = ["FILEMOON", "DOODSTREAM", "STREAMTAPE", "MIXDROP", "WAREZCDN"]
 
         def get_priority_score(label, url=""):
             label_u = (label or "").upper()
