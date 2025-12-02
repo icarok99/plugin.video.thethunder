@@ -20,6 +20,11 @@ Antes de instalar o addon Thunder, você precisa instalar as seguintes dependên
 
    [**Baixar *service.subtitles.legendei***](https://github.com/icarok99/OneRepo/raw/refs/heads/master/matrix/service.subtitles.legendei/service.subtitles.legendei-0.0.3.zip)
 
+3. **script.module.resolveurl**  
+   Este módulo é nescessário pra resolver as URLs dos players.
+
+   [**Baixar *script.module.resolveurl***](https://github.com/icarok99/OneRepo/raw/refs/heads/master/matrix/script.module.resolveurl/script.module.resolveurl.zip)
+
 ## 2. **Baixar Addon Thunder**
 
 Agora, baixe a versão funcional do addon Thunder para o Kodi:
@@ -37,6 +42,7 @@ Após baixar todos os arquivos mencionados acima, siga os seguintes passos:
 
     - Instale primeiro o `script.module.kodi-helper`.
     - Em seguida, instale o `service.subtitles.legendei`.
+    - E depois, instale o `script.module.resolveurl`.
     - Por fim, instale o `plugin.video.thethunder`.
 
 6. **Após a instalação, o addon Thunder estará disponível no menu de *Add-ons*.**

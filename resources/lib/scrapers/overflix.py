@@ -35,13 +35,8 @@ except ImportError:
     lib_path = local_path.replace('scrapers', '')
     sys.path.append(lib_path)
 
-try:
-    from resources.lib import resolveurl
-except ImportError:
-    local_path = os.path.dirname(os.path.realpath(__file__))
-    lib_path = local_path.replace('scrapers', '')
-    sys.path.append(lib_path)
-    from resolvers import resolveurl
+# Import the Resolver from resolver.py
+from resources.lib.resolver import Resolver
 
 class source:
     @classmethod
@@ -92,10 +87,17 @@ class source:
     def _extract_embeds_from_page(cls, html):
         embeds = []
         soup = BeautifulSoup(html, 'html.parser')
+
+        # Extrair o embed_base dinamicamente do JavaScript na página
+        embed_base_match = re.search(r'append\(\'<iframe src="([^"]+?)/e/getembed\.php', html)
+        embed_base = embed_base_match.group(1) if embed_base_match else "https://etv-embed.cfd"
+
+        # Extrair token
         token = 'cfxp594cpa4to'
         token_match = re.search(r'token\s*=\s*["\']([^"\']+)["\']', html)
         if token_match:
             token = token_match.group(1)
+
         player_divs = soup.find_all('div', class_='item', onclick=re.compile(r'GetIframe\([^)]+\)'))
         for div in player_divs:
             onclick = div.get('onclick', '')
@@ -103,36 +105,28 @@ class source:
             if not match:
                 continue
             player_id, server = match.groups()
-            getembed = f"https://etv-embed.casa/e/getembed.php?sv={server}&id={player_id}&site=overflix&token={token}"
+            getembed = f"{embed_base}/e/getembed.php?sv={server}&id={player_id}&site=overflix&token={token}"
             server_name = server.upper()
             embeds.append((server_name, getembed, {'id': player_id, 'sv': server, 'token': token}))
         return embeds
 
     @classmethod
     def _get_play_url(cls, referer_url, getembed_url, meta):
-        headers = {
-            'User-Agent': USER_AGENT,
-            'Referer': cls.__site_url__[-1]
-        }
-        try:
-            requests.get(referer_url, headers=headers)
-        except:
-            pass
-        headers_embed = {
-            'User-Agent': USER_AGENT,
-            'Referer': cls.__site_url__[-1]
-        }
-        try:
-            r1 = requests.get(getembed_url, headers=headers_embed)
-            if r1.status_code != 200:
-                return None
-        except:
-            return None
+        # Extrair base_url de getembed_url
+        parsed = urlparse(getembed_url)
+        base_url = parsed.scheme + '://' + parsed.netloc
+
+        # Construir play_url diretamente
         id_ = meta.get('id')
         sv = meta.get('sv')
-        play_url = f"https://etv-embed.casa/e/getplay.php?id={id_}&sv={sv}"
+        play_url = f"{base_url}/e/getplay.php?id={id_}&sv={sv}"
+
+        headers = {
+            'User-Agent': USER_AGENT,
+            'Referer': getembed_url  # Usar getembed_url como Referer sem fazer requisição a ela
+        }
         try:
-            r2 = requests.get(play_url, headers={'user-agent': USER_AGENT, 'Referer': getembed_url}, allow_redirects=True)
+            r2 = requests.get(play_url, headers=headers, allow_redirects=True)
             if r2.status_code != 200:
                 return None
             if r2.history:
@@ -354,7 +348,7 @@ class source:
         except:
             return links
 
-    __site_url__ = ['https://overflixtv.help/']
+    __site_url__ = ['https://overflixtv.bond/']
 
     @classmethod
     def resolve_movies(cls, url):
@@ -370,12 +364,10 @@ class source:
         except:
             pass
         stream = url.split('?')[0].split('#')[0]
-        try:
-            resolved, sub_from_resolver = resolveurl(stream, referer=None)
-            if resolved:
-                streams.append((resolved, sub if sub else sub_from_resolver, USER_AGENT))
-        except:
-            pass
+        resolver = Resolver()
+        resolved, sub_from_resolver = resolver.resolverurls(stream)
+        if resolved:
+            streams.append((resolved, sub if sub else sub_from_resolver, USER_AGENT))
         return streams
 
     @classmethod
