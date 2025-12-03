@@ -33,28 +33,76 @@ except ImportError:
     lib_path = local_path.replace('scrapers', '')
     sys.path.append(lib_path)
 
-# Import the Resolver from resolver.py
 from resources.lib.resolver import Resolver
+from bs4 import BeautifulSoup
 
 
 class source:
     __site_url__ = ['https://cinevibehd.com.br/']
 
     @classmethod
-    def find_title(cls, imdb):
-        url = f'https://m.imdb.com/pt/title/{imdb}'
-        try:
-            r = cfscraper.get(url, timeout=20)
-            if r.status_code != 200:
-                return ''
-            title_pt = re.search(r'data-testid="hero__pageTitle"[^>]*><span[^>]*>([^<]+)', r.text)
-            title_pt = title_pt.group(1).strip() if title_pt else ''
-            if not title_pt:
-                title_pt = re.search(r'<title>([^<]+) - IMDb', r.text)
-                title_pt = title_pt.group(1).split(' (')[0].strip() if title_pt else ''
-            return title_pt
-        except:
+    def normalize_title(cls, title):
+        if not title:
             return ''
+        title = re.sub(r'\s*[:]\s*', ' ', title)
+        title = re.sub(r'\s+', ' ', title).strip()
+        return title
+
+    @classmethod
+    def find_title(cls, imdb):
+        url = f'https://m.imdb.com/pt/title/{imdb}/'
+        headers = {
+            'User-Agent': USER_AGENT,
+            'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7'
+        }
+
+        try:
+            r = cfscraper.get(url, headers=headers, timeout=15)
+            if not r or r.status_code != 200:
+                return '', '', ''
+
+            soup = BeautifulSoup(r.text, 'html.parser')
+
+            title_pt = ''
+            hero = soup.find('h1', {'data-testid': 'hero__pageTitle'})
+            if hero:
+                span = hero.find('span')
+                title_pt = (span.text if span else hero.text).strip()
+
+            original_title = ''
+            orig_block = soup.find('div', {'data-testid': 'hero-title-block__original-title'})
+            if orig_block:
+                txt = orig_block.get_text(strip=True)
+                original_title = re.sub(r'^(T[íi]tulo original|Original title)[:\s]*', '', txt, flags=re.I).strip()
+
+            if not original_title:
+                m = re.search(r'T[íi]tulo original[:\s]*["\']?([^<"\']+)["\']?', r.text, re.I)
+                if m:
+                    original_title = m.group(1).strip()
+
+            year = ''
+            year_link = soup.find('a', href=re.compile(r'/releaseinfo'))
+            if year_link:
+                y = re.search(r'\d{4}', year_link.text)
+                if y:
+                    year = y.group(0)
+
+            if not year:
+                release_li = soup.find('li', {'data-testid': 'title-details-releasedate'})
+                if release_li:
+                    y = re.search(r'\d{4}', release_li.get_text())
+                    if y:
+                        year = y.group(0)
+
+            if not year:
+                y = re.search(r'\b(19|20)\d{2}\b', r.text[:6000])
+                if y:
+                    year = y.group(0)
+
+            return title_pt or original_title, original_title or title_pt, year or ''
+
+        except Exception:
+            return '', '', ''
 
     @classmethod
     def _get_player_urls(cls, post_id, html, season=None, episode=None):
@@ -125,9 +173,11 @@ class source:
 
     @classmethod
     def search_movies(cls, imdb, year):
-        title_pt = cls.find_title(imdb)
+        title_pt, original_title, imdb_year = cls.find_title(imdb)
         if not title_pt:
             return []
+
+        title_pt = cls.normalize_title(title_pt)
 
         query = quote_plus(title_pt)
         search_url = f"https://cinevibehd.com.br/?s={query}"
@@ -182,9 +232,11 @@ class source:
 
     @classmethod
     def search_tvshows(cls, imdb, year, season, episode):
-        title_pt = cls.find_title(imdb)
+        title_pt, original_title, imdb_year = cls.find_title(imdb)
         if not title_pt:
             return []
+
+        title_pt = cls.normalize_title(title_pt)
 
         s = str(int(season))
         e = str(int(episode))

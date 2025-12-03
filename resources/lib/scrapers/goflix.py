@@ -32,32 +32,74 @@ except ImportError:
     lib_path = local_path.replace('scrapers', '')
     sys.path.append(lib_path)
 
-# Import the Resolver from resolver.py
 from resources.lib.resolver import Resolver
 
 
 class source:
 
     @classmethod
-    def get_title(cls, imdb):
+    def normalize_title(cls, title):
+        if not title:
+            return ''
+        title = re.sub(r'\s*[:]\s*', ' ', title)
+        title = re.sub(r'\s+', ' ', title).strip()
+        return title
+
+    @classmethod
+    def find_title(cls, imdb):
+        url = f'https://m.imdb.com/pt/title/{imdb}/'
+        headers = {
+            'User-Agent': USER_AGENT,
+            'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7'
+        }
+
         try:
-            if not imdb.startswith("tt"):
-                imdb = "tt" + imdb.lstrip("t0")
-            url = f"https://m.imdb.com/title/{imdb}/"
-            r = cfscraper.get(url, headers={"User-Agent": USER_AGENT})
-            if r.status_code != 200:
-                return None, None
-            soup = BeautifulSoup(r.text, "html.parser")
-            title = soup.find("h1", {"data-testid": "hero__pageTitle"})
-            pt = title.get_text(strip=True) if title else None
-            orig = pt
-            txt = soup.get_text()
-            m = re.search(r"Título original[:\s]+([^\n]+)", txt, re.I)
-            if m:
-                orig = m.group(1).strip()
-            return pt or orig, orig
-        except:
-            return None, None
+            r = cfscraper.get(url, headers=headers, timeout=15)
+            if not r or r.status_code != 200:
+                return '', '', ''
+
+            soup = BeautifulSoup(r.text, 'html.parser')
+
+            title_pt = ''
+            hero = soup.find('h1', {'data-testid': 'hero__pageTitle'})
+            if hero:
+                span = hero.find('span')
+                title_pt = (span.text if span else hero.text).strip()
+
+            original_title = ''
+            orig_block = soup.find('div', {'data-testid': 'hero-title-block__original-title'})
+            if orig_block:
+                txt = orig_block.get_text(strip=True)
+                original_title = re.sub(r'^(T[íi]tulo original|Original title)[:\s]*', '', txt, flags=re.I).strip()
+
+            if not original_title:
+                m = re.search(r'T[íi]tulo original[:\s]*["\']?([^<"\']+)["\']?', r.text, re.I)
+                if m:
+                    original_title = m.group(1).strip()
+
+            year = ''
+            year_link = soup.find('a', href=re.compile(r'/releaseinfo'))
+            if year_link:
+                y = re.search(r'\d{4}', year_link.text)
+                if y:
+                    year = y.group(0)
+
+            if not year:
+                release_li = soup.find('li', {'data-testid': 'title-details-releasedate'})
+                if release_li:
+                    y = re.search(r'\d{4}', release_li.get_text())
+                    if y:
+                        year = y.group(0)
+
+            if not year:
+                y = re.search(r'\b(19|20)\d{2}\b', r.text[:6000])
+                if y:
+                    year = y.group(0)
+
+            return title_pt or original_title, original_title or title_pt, year or ''
+
+        except Exception:
+            return '', '', ''
 
     @classmethod
     def _resolve_fembed(cls, share_id, lang, cvalue=""):
@@ -115,9 +157,12 @@ class source:
 
     @classmethod
     def search_movies(cls, imdb, year=None):
-        pt, _ = cls.get_title(imdb)
+        pt, original_title, imdb_year = cls.find_title(imdb)
         if not pt:
             return []
+
+        pt = cls.normalize_title(pt)
+        original_title = cls.normalize_title(original_title or pt)
 
         r = cfscraper.get(f"https://goflixy.lol/buscar?q={quote_plus(pt)}", headers={"User-Agent": USER_AGENT})
         if not r.ok:
@@ -131,19 +176,17 @@ class source:
             if not title_tag:
                 continue
 
-            raw = title_tag.get_text(strip=True)                    # ex: "Aquaman (2018)"
+            raw = title_tag.get_text(strip=True)
             clean_title = re.sub(r"\s*\(\d{4}\)\s*$", "", raw).strip()
             card_year_match = re.search(r"\((\d{4})\)", raw)
             card_year = card_year_match.group(1) if card_year_match else None
 
-            # Filtro rigoroso de título + ano
             ratio = difflib.SequenceMatcher(None, pt.lower(), clean_title.lower()).ratio()
-            if ratio < 0.82:                                        # muito alto = evita falsos positivos
+            if ratio < 0.82:
                 continue
             if year and card_year and abs(int(year) - int(card_year)) > 1:
                 continue
 
-            # Se chegou até aqui → é o filme correto
             page = urljoin("https://goflixy.lol", a.get("href"))
             r2 = cfscraper.get(page, headers={"User-Agent": USER_AGENT})
             if not r2.ok:
@@ -182,9 +225,12 @@ class source:
         except:
             return []
 
-        pt, _ = cls.get_title(imdb)
+        pt, original_title, imdb_year = cls.find_title(imdb)
         if not pt:
             return []
+
+        pt = cls.normalize_title(pt)
+        original_title = cls.normalize_title(original_title or pt)
 
         r = cfscraper.get(f"https://goflixy.lol/buscar?q={quote_plus(pt)}", headers={"User-Agent": USER_AGENT})
         if not r.ok:
