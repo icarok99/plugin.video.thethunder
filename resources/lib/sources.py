@@ -32,15 +32,15 @@ def import_scripts(pasta):
         # Verificar se a fonte está ativada nas configurações
         source_enabled = True
         if addon_instance:
-            if script == 'warez' and addon_instance.getSetting('source_warezcdn') != 'true':
+            if script == 'assistirbiz' and addon_instance.getSetting('source_assistirbiz') != 'true':
                 source_enabled = False
-            elif script == 'overflix' and addon_instance.getSetting('source_overflix') != 'true':
-                source_enabled = False
-            elif script == 'assistirbiz' and addon_instance.getSetting('source_assistirbiz') != 'true':
+            elif script == 'cinevibehd' and addon_instance.getSetting('source_cinevibehd') != 'true':
                 source_enabled = False
             elif script == 'goflix' and addon_instance.getSetting('source_goflix') != 'true':
                 source_enabled = False
-            elif script == 'cinevibehd' and addon_instance.getSetting('source_cinevibehd') != 'true':
+            elif script == 'netcine' and addon_instance.getSetting('source_netcine') != 'true':
+                source_enabled = False
+            elif script == 'overflix' and addon_instance.getSetting('source_overflix') != 'true':
                 source_enabled = False
 
         if source_enabled:
