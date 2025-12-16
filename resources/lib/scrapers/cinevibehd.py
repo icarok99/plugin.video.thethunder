@@ -38,7 +38,7 @@ from bs4 import BeautifulSoup
 
 
 class source:
-    __site_url__ = ['https://cinevibehd.com.br/']
+    __site_url__ = ['https://cinevibehd.com/']
 
     @classmethod
     def normalize_title(cls, title):
