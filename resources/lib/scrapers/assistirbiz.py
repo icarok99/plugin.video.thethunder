@@ -2,11 +2,6 @@
 
 WEBSITE = 'ASSISTIRBIZ'
 
-try:
-    from resources.lib.ClientScraper import cfscraper, USER_AGENT
-except Exception:
-    from ClientScraper import cfscraper, USER_AGENT
-
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import quote_plus, urlparse, urljoin
@@ -17,6 +12,7 @@ import difflib
 import base64
 import json
 import unicodedata
+import socket
 
 try:
     from kodi_helper import myAddon
@@ -28,13 +24,110 @@ except ImportError:
     lib_path = local_path.replace('scrapers', '')
     sys.path.append(lib_path)
 
-# Import the Resolver from resolver.py
 from resources.lib.resolver import Resolver
 
+USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36'
+
+class DNSResolver:
+    def __init__(self, dns_servers=['1.1.1.1', '1.0.0.1', '8.8.8.8', '8.8.4.4']):
+        self.etc_hosts = {}
+        self.cache_resolve_dns = {}
+        self.dns_servers = dns_servers
+
+    def dns_query_custom(self, hostname):
+        query = b'\xaa\xbb\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00' + \
+                b''.join(bytes([len(part)]) + part.encode('ascii') for part in hostname.split('.')) + \
+                b'\x00\x00\x01\x00\x01'
+
+        for dns_server in self.dns_servers:
+            try:
+                sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                sock.settimeout(3)
+                sock.sendto(query, (dns_server, 53))
+                response, _ = sock.recvfrom(1024)
+                sock.close()
+
+                i = 12
+                qlen = response[i]
+                i += 1 + qlen
+                while qlen != 0:
+                    qlen = response[i]
+                    i += 1 + qlen
+                i += 4
+                i += 10
+                rdlen = response[i] * 256 + response[i+1]
+                i += 2
+                ip_bytes = response[i:i+4]
+                return '.'.join(str(b) for b in ip_bytes)
+            except Exception:
+                continue
+        raise Exception("Todos os DNS falharam")
+
+    def _change_dns(self, domain_name, port, ip):
+        key = (domain_name, port)
+        value = (socket.AF_INET, socket.SOCK_STREAM, 6, '', (ip, port))
+        self.etc_hosts[key] = [value]
+
+    def change(self, url):
+        if not hasattr(socket, '_original_getaddrinfo'):
+            socket._original_getaddrinfo = socket.getaddrinfo
+
+        socket.getaddrinfo = self.resolver(socket._original_getaddrinfo)
+
+        parsed_url = urlparse(url)
+        port = parsed_url.port or (443 if parsed_url.scheme == 'https' else 80)
+        host = parsed_url.hostname
+
+        if 'assistir.biz' not in host:
+            return
+
+        if host not in self.cache_resolve_dns:
+            try:
+                ip_address = self.dns_query_custom(host)
+            except Exception:
+                try:
+                    ip_address = socket.gethostbyname(host)
+                except Exception:
+                    ip_address = '127.0.0.1'
+            self.cache_resolve_dns[host] = ip_address
+
+        self._change_dns(host, port, self.cache_resolve_dns[host])
+
+    def resolver(self, builtin_resolver):
+        def wrapper(*args, **kwargs):
+            try:
+                return self.etc_hosts[args[:2]]
+            except KeyError:
+                return builtin_resolver(*args, **kwargs)
+        return wrapper
+
+dns_resolver = DNSResolver()
 
 def remover_acentos(texto):
     return ''.join(c for c in unicodedata.normalize('NFD', texto)
                    if unicodedata.category(c) != 'Mn').lower()
+
+def get_page(url, referer=None):
+    headers = {'User-Agent': USER_AGENT}
+    if referer:
+        headers['Referer'] = referer
+    dns_resolver.change(url)
+    try:
+        return requests.get(url, headers=headers)
+    except Exception:
+        return None
+
+def post_page(url, data, referer=None):
+    headers = {
+        'User-Agent': USER_AGENT,
+        'X-Requested-With': 'XMLHttpRequest',
+        'Referer': referer or url
+    }
+    dns_resolver.change(url)
+    try:
+        return requests.post(url, data=data, headers=headers)
+    except Exception:
+        return None
 
 
 class source:
@@ -43,8 +136,8 @@ class source:
     @classmethod
     def find_title(cls, imdb):
         url = f'https://m.imdb.com/pt/title/{imdb}'
+        r = get_page(url)
         try:
-            r = cfscraper.get(url)
             if not r or r.status_code != 200:
                 return '', '', ''
             soup = BeautifulSoup(r.text, 'html.parser')
@@ -80,13 +173,9 @@ class source:
     def _get_video_data(cls, vid_id, vid_token, referer=None):
         if not referer:
             referer = cls.__site_url__[-1]
-        headers = {'User-Agent': USER_AGENT, 'Referer': referer, 'X-Requested-With': 'XMLHttpRequest'}
         ajax_url = urljoin(cls.__site_url__[-1], '/getepisodio')
         data = {'id': vid_id, 'token': vid_token}
-        try:
-            r_ajax = cfscraper.post(ajax_url, data=data, headers=headers)
-        except Exception:
-            return None
+        r_ajax = post_page(ajax_url, data, referer=referer)
         if not r_ajax or r_ajax.status_code != 200:
             return None
         try:
@@ -127,11 +216,7 @@ class source:
 
     @classmethod
     def _extract_players_from_page(cls, url):
-        headers = {'User-Agent': USER_AGENT, 'Referer': url}
-        try:
-            r = cfscraper.get(url, headers=headers)
-        except Exception:
-            return None
+        r = get_page(url, referer=url)
         if not r or r.status_code != 200:
             return None
 
@@ -141,10 +226,8 @@ class source:
         best_url = None
         best_score = -1
 
-        # Pontuação por qualidade (maior = melhor)
         quality_score = {'1080': 1080, '720': 720, '480': 480, '360': 360, 'hd': 720, 'sd': 360}
 
-        # 1. <source> com size (ex: size="720")
         for source in soup.find_all('source'):
             src = source.get('src')
             size = source.get('size', '').strip().lower()
@@ -154,7 +237,6 @@ class source:
                     best_score = score
                     best_url = src if src.startswith('http') else ('https:' + src if src.startswith('//') else urljoin(url, src))
 
-        # 2. Links do tipo selector?q=hd ou q=sd
         selector_links = re.findall(r'(//[^"\']*selector\?[^"\']*q=(hd|sd)[^"\']*)', html, re.I)
         for link, q in selector_links:
             score = quality_score.get(q.lower(), 0)
@@ -162,7 +244,6 @@ class source:
                 best_score = score
                 best_url = 'https:' + link
 
-        # 3. Fallback: qualquer source ou mp4/m3u8 direto (prioriza o primeiro com "hd" no link)
         if not best_url:
             fallback = re.search(r'<source[^>]+src=["\']([^"\']+)["\']', html, re.I)
             if not fallback:
@@ -173,7 +254,6 @@ class source:
                     candidate = 'https:' + candidate
                 elif not candidate.startswith('http'):
                     candidate = urljoin(url, candidate)
-                # Prioriza se tiver "hd" no link
                 score = 720 if 'hd' in candidate.lower() else 360
                 if score > best_score:
                     best_url = candidate
@@ -190,7 +270,7 @@ class source:
             titulo_busca = remover_acentos(title)
             query = quote_plus(titulo_busca)
             search_url = cls.__site_url__[-1].rstrip('/') + f'/busca?q={query}'
-            r = cfscraper.get(search_url)
+            r = get_page(search_url)
             if not r or r.status_code != 200:
                 return links
             soup = BeautifulSoup(r.text, 'html.parser')
@@ -209,7 +289,7 @@ class source:
                     break
             if not movie_url:
                 return links
-            r_movie = cfscraper.get(movie_url)
+            r_movie = get_page(movie_url)
             if not r_movie or r_movie.status_code != 200:
                 return links
             html = r_movie.text
@@ -234,9 +314,9 @@ class source:
                     if player_url:
                         vid_url = cls._extract_players_from_page(player_url)
                         if vid_url:
-                            links.append((f"{WEBSITE} - Português", vid_url))
+                            links.append((f"{WEBSITE} - DUBLADO", vid_url))
                         else:
-                            links.append((f"{WEBSITE} - Português", player_url))
+                            links.append((f"{WEBSITE} - DUBLADO", player_url))
             return links
         except Exception:
             return links
@@ -251,7 +331,7 @@ class source:
             titulo_busca = remover_acentos(title or original_title)
             query = quote_plus(titulo_busca)
             search_url = cls.__site_url__[-1].rstrip('/') + f'/busca?q={query}'
-            r = cfscraper.get(search_url)
+            r = get_page(search_url)
             if not r or r.status_code != 200:
                 return links
             soup = BeautifulSoup(r.text, 'html.parser')
@@ -271,7 +351,7 @@ class source:
             if not series_url:
                 return links
             season_url = f"{series_url}/temporada-{season}"
-            r_season = cfscraper.get(season_url)
+            r_season = get_page(season_url)
             if not r_season or r_season.status_code != 200:
                 return links
             soup_season = BeautifulSoup(r_season.text, 'html.parser')
@@ -299,7 +379,7 @@ class source:
                             if json_data:
                                 player_url = cls._construct_player_url(json_data)
                                 if player_url:
-                                    links.append((f"{WEBSITE} - Português", player_url))
+                                    links.append((f"{WEBSITE} - DUBLADO", player_url))
                             break
             else:
                 html = r_season.text
@@ -310,7 +390,7 @@ class source:
                     if json_data:
                         player_url = cls._construct_player_url(json_data)
                         if player_url:
-                            links.append((f"{WEBSITE} - Português", player_url))
+                            links.append((f"{WEBSITE} - DUBLADO", player_url))
             return links
         except Exception:
             return links
