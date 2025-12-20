@@ -2,16 +2,23 @@
 
 WEBSITE = 'CINEVIBEHD'
 
-try:
-    from resources.lib.ClientScraper import cfscraper, USER_AGENT
-except ImportError:
-    from ClientScraper import cfscraper, USER_AGENT
-
 import re
 import difflib
 import sys
 import os
 from urllib.parse import quote_plus
+import requests
+from bs4 import BeautifulSoup
+
+# Sessão requests com headers realistas
+session = requests.Session()
+USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36'
+session.headers.update({
+    'User-Agent': USER_AGENT,
+    'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+    'Referer': 'https://cinevibehd.com.br/',
+})
 
 try:
     from resources.lib.autotranslate import AutoTranslate
@@ -34,7 +41,6 @@ except ImportError:
     sys.path.append(lib_path)
 
 from resources.lib.resolver import Resolver
-from bs4 import BeautifulSoup
 
 
 class source:
@@ -51,13 +57,10 @@ class source:
     @classmethod
     def find_title(cls, imdb):
         url = f'https://m.imdb.com/pt/title/{imdb}/'
-        headers = {
-            'User-Agent': USER_AGENT,
-            'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7'
-        }
+        headers = {'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7'}
 
         try:
-            r = cfscraper.get(url, headers=headers, timeout=15)
+            r = session.get(url, headers=headers, timeout=15)
             if not r or r.status_code != 200:
                 return '', '', ''
 
@@ -120,7 +123,6 @@ class source:
 
         players = []
         headers = {
-            'User-Agent': USER_AGENT,
             'Referer': cls.__site_url__[-1],
             'Accept': 'application/json, text/javascript, */*; q=0.01'
         }
@@ -132,11 +134,11 @@ class source:
                 api = f"https://cinevibehd.com.br/wp-json/dooplayer/v2/{post_id}/tv/{nume}"
 
             try:
-                r = cfscraper.get(api, headers=headers, timeout=20)
+                r = session.get(api, headers=headers, timeout=20)
             except:
                 continue
 
-            if not r or getattr(r, 'status_code', None) != 200:
+            if not r or r.status_code != 200:
                 continue
 
             embed = None
@@ -183,7 +185,7 @@ class source:
         search_url = f"https://cinevibehd.com.br/?s={query}"
 
         try:
-            r = cfscraper.get(search_url, timeout=20)
+            r = session.get(search_url, timeout=20)
             if r.status_code != 200:
                 return []
 
@@ -216,7 +218,7 @@ class source:
             if not best_url or best_score < 0.78:
                 return []
 
-            film_html_resp = cfscraper.get(best_url, timeout=20)
+            film_html_resp = session.get(best_url, timeout=20)
             if film_html_resp.status_code != 200:
                 return []
 
@@ -243,7 +245,7 @@ class source:
 
         try:
             search_url = f"https://cinevibehd.com.br/?s={quote_plus(title_pt)}"
-            r = cfscraper.get(search_url, timeout=20)
+            r = session.get(search_url, timeout=20)
             if r.status_code != 200:
                 return []
 
@@ -254,7 +256,7 @@ class source:
                 return []
 
             series_url = series_match.group(1)
-            series_resp = cfscraper.get(series_url, timeout=30)
+            series_resp = session.get(series_url, timeout=30)
             if series_resp.status_code != 200:
                 return []
 
@@ -301,7 +303,7 @@ class source:
             if not episode_url:
                 return []
 
-            ep_resp = cfscraper.get(episode_url, timeout=30)
+            ep_resp = session.get(episode_url, timeout=30)
             if ep_resp.status_code != 200:
                 return []
 
