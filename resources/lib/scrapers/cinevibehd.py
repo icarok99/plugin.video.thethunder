@@ -2,26 +2,31 @@
 
 WEBSITE = 'CINEVIBEHD'
 
-try:
-    from resources.lib.ClientScraper import cfscraper, USER_AGENT
-except ImportError:
-    from ClientScraper import cfscraper, USER_AGENT
-
 import re
 import difflib
 import sys
 import os
 from urllib.parse import quote_plus
+import requests
+from bs4 import BeautifulSoup
+
+# Sessão requests com headers realistas
+session = requests.Session()
+USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36'
+session.headers.update({
+    'User-Agent': USER_AGENT,
+    'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+    'Referer': 'https://cinevibehd.com/',
+})
 
 try:
     from resources.lib.autotranslate import AutoTranslate
     portuguese = AutoTranslate.language('Portuguese')
     english = AutoTranslate.language('English')
-    select_option_name = AutoTranslate.language('select_option')
 except ImportError:
     portuguese = 'DUBLADO'
     english = 'LEGENDADO'
-    select_option_name = 'SELECIONE UMA OPÇÃO ABAIXO:'
 
 try:
     from kodi_helper import myAddon
@@ -34,7 +39,6 @@ except ImportError:
     sys.path.append(lib_path)
 
 from resources.lib.resolver import Resolver
-from bs4 import BeautifulSoup
 
 
 class source:
@@ -51,13 +55,10 @@ class source:
     @classmethod
     def find_title(cls, imdb):
         url = f'https://m.imdb.com/pt/title/{imdb}/'
-        headers = {
-            'User-Agent': USER_AGENT,
-            'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7'
-        }
+        headers = {'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7'}
 
         try:
-            r = cfscraper.get(url, headers=headers, timeout=15)
+            r = session.get(url, headers=headers, timeout=15)
             if not r or r.status_code != 200:
                 return '', '', ''
 
@@ -110,64 +111,60 @@ class source:
             return []
 
         raw_nume = re.findall(r'data-nume=[\"\'](\d+)[\"\']', html or '')
-        nume_list = []
-        for n in raw_nume:
-            if n not in nume_list and n.lower() != 'trailer':
-                nume_list.append(n)
+        nume_list = list(set([n for n in raw_nume if n.lower() != 'trailer']))
 
         if not nume_list:
             return []
 
         players = []
         headers = {
-            'User-Agent': USER_AGENT,
             'Referer': cls.__site_url__[-1],
             'Accept': 'application/json, text/javascript, */*; q=0.01'
         }
 
         for nume in nume_list:
             if season is None or episode is None:
-                api = f"https://cinevibehd.com.br/wp-json/dooplayer/v2/{post_id}/movie/{nume}"
+                api = f"https://cinevibehd.com/wp-json/dooplayer/v2/{post_id}/movie/{nume}"
             else:
-                api = f"https://cinevibehd.com.br/wp-json/dooplayer/v2/{post_id}/tv/{nume}"
+                api = f"https://cinevibehd.com/wp-json/dooplayer/v2/{post_id}/tv/{nume}"
 
             try:
-                r = cfscraper.get(api, headers=headers, timeout=20)
+                r = session.get(api, headers=headers, timeout=20)
+                if not r or r.status_code != 200:
+                    continue
+
+                try:
+                    data = r.json()
+                    embed = data.get('embed_url') or data.get('embed') or data.get('url') or data.get('player') or data.get('iframe')
+                except:
+                    embed = None
+
+                if not embed:
+                    m_if = re.search(r'<iframe[^>]+src=[\'"]([^\'"]+)[\'"]', r.text, re.I)
+                    if m_if:
+                        embed = m_if.group(1)
+
+                if not embed:
+                    m = re.search(r'(https?://[^\s\'"]+\.(?:m3u8|mp4)[^\s\'"]*)', r.text)
+                    if m:
+                        embed = m.group(1)
+
+                if not embed:
+                    continue
+
+                title_match = re.search(rf'data-nume=[\"\']{nume}[\"\'][^>]*>.*?<span[^>]*class=["\']title["\'][^>]*>([^<]+)</span>', html or '', re.I | re.S)
+                raw_title = title_match.group(1).strip() if title_match else ""
+                is_dub = bool(re.search(r'dub|dublad|dublado', raw_title, re.I))
+                lang = portuguese if is_dub else english
+
+                count = sum(1 for existing_name, _ in players if lang in existing_name)
+                number = count + 1
+                name = f"{WEBSITE} - {lang} {number}"
+
+                players.append((name, embed))
+
             except:
                 continue
-
-            if not r or getattr(r, 'status_code', None) != 200:
-                continue
-
-            embed = None
-            try:
-                data = r.json()
-                embed = data.get('embed_url') or data.get('embed') or data.get('url') or data.get('player') or data.get('iframe')
-            except:
-                m_if = re.search(r'<iframe[^>]+src=[\'"]([^\'"]+)[\'"]', r.text, re.I)
-                if m_if:
-                    embed = m_if.group(1)
-
-            if not embed:
-                m = re.search(r'(https?://[^\s\'"]+\.(?:m3u8|mp4)[^\s\'"]*)', r.text)
-                if m:
-                    embed = m.group(1)
-
-            if not embed:
-                continue
-
-            title_match = re.search(rf'data-nume=[\"\']{nume}[\"\'][^>]*>.*?<span[^>]*class=["\']title["\'][^>]*>([^<]+)</span>', html or '', re.I | re.S)
-            raw_title = title_match.group(1).strip() if title_match else ""
-
-            is_dub = bool(re.search(r'dub|dublad|dublado', raw_title, re.I))
-            lang = portuguese if is_dub else english
-
-            count = sum(1 for existing_name, _ in players if lang in existing_name)
-            number = count + 1
-
-            name = f"{WEBSITE} - {lang} {number}"
-
-            players.append((name, embed))
 
         return players
 
@@ -178,56 +175,53 @@ class source:
             return []
 
         title_pt = cls.normalize_title(title_pt)
-
         query = quote_plus(title_pt)
-        search_url = f"https://cinevibehd.com.br/?s={query}"
+        search_url = f"https://cinevibehd.com/?s={query}"
 
         try:
-            r = cfscraper.get(search_url, timeout=20)
+            r = session.get(search_url, timeout=20)
             if r.status_code != 200:
                 return []
 
-            matches = re.findall(r'href=["\'](https://cinevibehd\.com\.br/filmes/[^"\']+)["\'][^>]*>([^<]+)</a>', r.text)
-            if not matches:
-                return []
+            soup = BeautifulSoup(r.text, 'html.parser')
+            items = soup.find_all('a', href=re.compile(r'/filmes/[^/]+/$'))
 
             best_url = None
             best_score = 0
-            year = str(year) if year else None
 
-            for url, text in matches:
-                text_year_match = re.search(r'\b(19|20)\d{2}\b', text)
-                text_year = text_year_match.group(0) if text_year_match else None
-                clean = re.sub(r'\s*\(\d{4}\).*', '', text, flags=re.I).strip()
-                clean = re.sub(r'\b(19|20)\d{2}\b', '', clean).strip()
+            for a in items:
+                href = a['href']
+                text = a.get_text(strip=True)
 
-                ratio = difflib.SequenceMatcher(None, title_pt.lower(), clean.lower()).ratio()
+                clean_text = re.sub(r'\(\d{4}\)', '', text).strip()
+                text_year = re.search(r'\((\d{4})\)', text)
+                text_year = text_year.group(1) if text_year else None
+
+                ratio = difflib.SequenceMatcher(None, title_pt.lower(), clean_text.lower()).ratio()
                 score = ratio
 
                 if year and text_year and abs(int(year) - int(text_year)) <= 1:
                     score += 0.4
-                elif not year and not text_year:
-                    score += 0.1
 
-                if score > best_score:
+                if score > best_score and score > 0.78:
                     best_score = score
-                    best_url = url
+                    best_url = href
 
-            if not best_url or best_score < 0.78:
+            if not best_url:
                 return []
 
-            film_html_resp = cfscraper.get(best_url, timeout=20)
-            if film_html_resp.status_code != 200:
+            film_resp = session.get(best_url, timeout=20)
+            if film_resp.status_code != 200:
                 return []
 
-            post_id_m = re.search(r'data-post=[\"\'](\d+)[\"\']', film_html_resp.text)
-            if not post_id_m:
+            post_id_match = re.search(r'data-post=["\'](\d+)["\']', film_resp.text)
+            if not post_id_match:
                 return []
 
-            post_id = post_id_m.group(1)
-            return cls._get_player_urls(post_id, film_html_resp.text, season=None, episode=None)
+            post_id = post_id_match.group(1)
+            return cls._get_player_urls(post_id, film_resp.text)
 
-        except:
+        except Exception:
             return []
 
     @classmethod
@@ -237,81 +231,59 @@ class source:
             return []
 
         title_pt = cls.normalize_title(title_pt)
-
         s = str(int(season))
-        e = str(int(episode))
+        e = str(int(episode)).zfill(2)
 
         try:
-            search_url = f"https://cinevibehd.com.br/?s={quote_plus(title_pt)}"
-            r = cfscraper.get(search_url, timeout=20)
+            search_url = f"https://cinevibehd.com/?s={quote_plus(title_pt)}"
+            r = session.get(search_url, timeout=20)
             if r.status_code != 200:
                 return []
 
-            series_match = re.search(r'href=["\'](https://cinevibehd\.com\.br/series/[^"\']+)["\']', r.text, re.I)
-            if not series_match:
-                series_match = re.search(r'href=["\'](https://cinevibehd\.com\.br/series/[^"\']+?(?:-2024)?/?)["\']', r.text, re.I)
-            if not series_match:
+            soup = BeautifulSoup(r.text, 'html.parser')
+            serie_link = soup.find('a', href=re.compile(r'/series/[^/]+/$'))
+            if not serie_link:
                 return []
 
-            series_url = series_match.group(1)
-            series_resp = cfscraper.get(series_url, timeout=30)
+            series_url = serie_link['href']
+            series_resp = session.get(series_url, timeout=30)
             if series_resp.status_code != 200:
                 return []
 
             html = series_resp.text
-            episode_url = None
+            soup_series = BeautifulSoup(html, 'html.parser')
 
-            new_pat = re.compile(
-                r'<article[^>]+class=["\'][^"\']*cv-ep[^"\']*["\'][^>]*'
-                r'(?:data-season=["\'](\d+)["\'][^>]*'
-                r'data-epnum=["\'](\d+)["\'][^>]*'
-                r'|data-epnum=["\'](\d+)["\'][^>]*'
-                r'data-season=["\'](\d+)["\'][^>]*'
-                r')>.*?'
-                r'href=["\'](https?://cinevibehd\.com\.br/episodios/[^"\']+)["\']',
-                re.DOTALL | re.I
-            )
-            for m in new_pat.finditer(html):
-                groups = m.groups()
-                sea = groups[0] or groups[3]
-                epi = groups[1] or groups[2]
-                if sea == s and epi == e:
-                    episode_url = m.group(5)
-                    break
+            episode_pattern = re.compile(rf'/episodios/[^/]+-{s}x{e}[^/]*/?$', re.I)
+            ep_link = soup_series.find('a', href=episode_pattern)
 
-            if not episode_url:
-                old_pat = re.compile(
-                    r'<div[^>]+class=["\']numerando["\'][^>]*>\s*{}\s*-\s*{}\s*</div>.*?'
-                    r'<a\s+href=["\'](https?://cinevibehd\.com\.br/episodios/[^"\']+)["\']'.format(s, e),
-                    re.DOTALL | re.I
-                )
-                m = old_pat.search(html)
-                if m:
-                    episode_url = m.group(1)
+            if not ep_link:
+                fallback_patterns = [
+                    rf'{s}x{int(episode)}',
+                    rf'{s}x{int(episode):02d}',
+                    rf'{int(s):02d}x{int(episode):02d}',
+                ]
+                for pat in fallback_patterns:
+                    ep_link = soup_series.find('a', href=re.compile(rf'/episodios/[^/]+-{pat}[^/]*/?$', re.I))
+                    if ep_link:
+                        break
 
-            if not episode_url:
-                fb1 = re.search(rf'href=["\'](https?://cinevibehd\.com\.br/episodios/[^"\']*?-{s}x{e}[^"\']*)["\']', html, re.I)
-                if fb1:
-                    episode_url = fb1.group(1)
-                else:
-                    fb2 = re.search(rf'href=["\'](https?://cinevibehd\.com\.br/episodios/[^"\']*?-{s}x{int(e):02d}[^"\']*)["\']', html, re.I)
-                    if fb2:
-                        episode_url = fb2.group(1)
-
-            if not episode_url:
+            if not ep_link:
                 return []
 
-            ep_resp = cfscraper.get(episode_url, timeout=30)
+            episode_url = ep_link['href']
+            if not episode_url.startswith('http'):
+                episode_url = 'https://cinevibehd.com' + episode_url
+
+            ep_resp = session.get(episode_url, timeout=30)
             if ep_resp.status_code != 200:
                 return []
 
-            post_id = re.search(r'data-post=["\'](\d+)["\']', ep_resp.text)
-            if not post_id:
-                post_id = re.search(r'data-postid=["\'](\d+)["\']', ep_resp.text)
-            if not post_id:
+            post_id_match = re.search(r'data-post=["\'](\d+)["\']', ep_resp.text)
+            if not post_id_match:
                 return []
 
-            return cls._get_player_urls(post_id.group(1), ep_resp.text, season=s, episode=e)
+            post_id = post_id_match.group(1)
+            return cls._get_player_urls(post_id, ep_resp.text, season=season, episode=episode)
 
         except Exception:
             return []
@@ -321,19 +293,23 @@ class source:
         streams = []
         if not url:
             return streams
+
         sub = ''
         try:
-            sub_part = url.split('http')[2]
-            sub = 'http' + sub_part.split('&')[0]
-            if '.srt' not in sub:
-                sub = ''
+            if 'http' in url:
+                parts = url.split('http')
+                sub_candidate = 'http' + parts[-1].split('&')[0]
+                if '.srt' in sub_candidate:
+                    sub = sub_candidate
         except:
             pass
+
         stream = url.split('?')[0].split('#')[0]
         resolver = Resolver()
         resolved, sub_from_resolver = resolver.resolverurls(stream)
         if resolved:
-            streams.append((resolved, sub if sub else sub_from_resolver, USER_AGENT))
+            streams.append((resolved, sub or sub_from_resolver, USER_AGENT))
+
         return streams
 
     @classmethod

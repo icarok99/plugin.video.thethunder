@@ -2,11 +2,6 @@
 
 WEBSITE = 'OVERFLIX'
 
-try:
-    from resources.lib.ClientScraper import cfscraper, USER_AGENT
-except ImportError:
-    from ClientScraper import cfscraper, USER_AGENT
-
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import quote_plus, urlparse, urljoin
@@ -14,6 +9,16 @@ import os
 import sys
 import re
 import difflib
+
+# Sessão requests com headers realistas
+session = requests.Session()
+USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36'
+session.headers.update({
+    'User-Agent': USER_AGENT,
+    'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+    'Accept': '*/*',
+    'Referer': 'https://overflixtv.bond/',
+})
 
 try:
     from resources.lib.autotranslate import AutoTranslate
@@ -50,13 +55,10 @@ class source:
     @classmethod
     def find_title(cls, imdb):
         url = f'https://m.imdb.com/pt/title/{imdb}/'
-        headers = {
-            'User-Agent': USER_AGENT,
-            'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7'
-        }
+        headers = {'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7'}
 
         try:
-            r = cfscraper.get(url, headers=headers, timeout=15)
+            r = session.get(url, headers=headers, timeout=15)
             if not r or r.status_code != 200:
                 return '', '', ''
 
@@ -138,11 +140,10 @@ class source:
         play_url = f"{base_url}/e/getplay.php?id={id_}&sv={sv}"
 
         headers = {
-            'User-Agent': USER_AGENT,
             'Referer': getembed_url
         }
         try:
-            r2 = requests.get(play_url, headers=headers, allow_redirects=True)
+            r2 = session.get(play_url, headers=headers, allow_redirects=True)
             if r2.status_code != 200:
                 return None
             if r2.history:
@@ -194,7 +195,7 @@ class source:
                 try:
                     query = quote_plus(search_title)
                     search_url = cls.__site_url__[-1].rstrip('/') + '/pesquisar/?p=' + query
-                    r = cfscraper.get(search_url)
+                    r = session.get(search_url)
                     if not r or r.status_code != 200 or "captcha" in r.text.lower():
                         return {}, None
                     soup = BeautifulSoup(r.text, 'html.parser')
@@ -240,7 +241,7 @@ class source:
             if not movie_urls:
                 return links
 
-            r = cfscraper.get(f"{movie_urls.get('dublado', movie_urls.get('legendado', ''))}?area=online", headers={'Referer': cls.__site_url__[-1]})
+            r = session.get(f"{movie_urls.get('dublado', movie_urls.get('legendado', ''))}?area=online", headers={'Referer': cls.__site_url__[-1]})
             if not r or r.status_code != 200 or "captcha" in r.text.lower():
                 return links
             embeds_final = []
@@ -260,7 +261,7 @@ class source:
                 if not lang_url:
                     continue
 
-                rlang = cfscraper.get(lang_url, headers={'Referer': cls.__site_url__[-1]})
+                rlang = session.get(lang_url, headers={'Referer': cls.__site_url__[-1]})
                 if not rlang or rlang.status_code != 200 or "captcha" in rlang.text.lower():
                     continue
                 embeds = cls._extract_embeds_from_page(rlang.text)
@@ -290,7 +291,7 @@ class source:
                 try:
                     query = quote_plus(search_title)
                     search_url = cls.__site_url__[-1].rstrip('/') + '/pesquisar/?p=' + query
-                    r = cfscraper.get(search_url)
+                    r = session.get(search_url)
                     if not r or r.status_code != 200 or "captcha" in r.text.lower():
                         return {}, None
                     soup = BeautifulSoup(r.text, 'html.parser')
@@ -341,11 +342,10 @@ class source:
             for lang in languages:
                 series_url = series_urls.get(lang)
 
-                # 🔥 CORREÇÃO: NÃO INVENTAR LINK LEGENDADO
                 if not series_url:
                     continue
 
-                r = cfscraper.get(series_url, headers={'Referer': cls.__site_url__[-1]})
+                r = session.get(series_url, headers={'Referer': cls.__site_url__[-1]})
                 if not r or r.status_code != 200 or "captcha" in r.text.lower():
                     continue
                 soup = BeautifulSoup(r.text, 'html.parser')
@@ -366,7 +366,7 @@ class source:
 
                 if not episode_url:
                     season_url = f"{series_url.rstrip('/')}?temporada={season}"
-                    r_season = cfscraper.get(season_url, headers={'Referer': cls.__site_url__[-1]})
+                    r_season = session.get(season_url, headers={'Referer': cls.__site_url__[-1]})
                     if r_season and r_season.status_code == 200 and "captcha" not in r_season.text.lower():
                         soup_season = BeautifulSoup(r_season.text, 'html.parser')
                         episode_links = soup_season.find_all('a', href=re.compile(r'/assistir-.*-(\d+)x(\d+)-([a-z]+)(?:-[a-z0-9]+)?-\d+/?$'))
@@ -389,7 +389,7 @@ class source:
                 lang_label = portuguese if lang == 'dublado' else english
                 lang_url = episode_url
 
-                rlang = cfscraper.get(lang_url, headers={'Referer': cls.__site_url__[-1]})
+                rlang = session.get(lang_url, headers={'Referer': cls.__site_url__[-1]})
                 if not rlang or rlang.status_code != 200 or "captcha" in rlang.text.lower():
                     continue
                 embeds = cls._extract_embeds_from_page(rlang.text)

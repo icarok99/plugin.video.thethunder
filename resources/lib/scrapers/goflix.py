@@ -1,11 +1,6 @@
 # -*- coding: utf-8 -*-
 WEBSITE = 'GOFLIX'
 
-try:
-    from resources.lib.ClientScraper import cfscraper, USER_AGENT
-except ImportError:
-    from ClientScraper import cfscraper, USER_AGENT
-
 import re
 import os
 import sys
@@ -13,6 +8,17 @@ import difflib
 import base64
 from urllib.parse import quote_plus, urljoin
 from bs4 import BeautifulSoup
+import requests
+
+# Sessão requests com headers realistas
+session = requests.Session()
+USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36'
+session.headers.update({
+    'User-Agent': USER_AGENT,
+    'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+    'Accept': '*/*',
+    'Referer': 'https://goflixy.lol/',
+})
 
 try:
     from resources.lib.autotranslate import AutoTranslate
@@ -48,13 +54,10 @@ class source:
     @classmethod
     def find_title(cls, imdb):
         url = f'https://m.imdb.com/pt/title/{imdb}/'
-        headers = {
-            'User-Agent': USER_AGENT,
-            'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7'
-        }
+        headers = {'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7'}
 
         try:
-            r = cfscraper.get(url, headers=headers, timeout=15)
+            r = session.get(url, headers=headers, timeout=15)
             if not r or r.status_code != 200:
                 return '', '', ''
 
@@ -108,7 +111,7 @@ class source:
             if cvalue:
                 page = f"https://fembed.sx/e/{share_id}/{cvalue}"
 
-            r0 = cfscraper.get(page, headers={"User-Agent": USER_AGENT})
+            r0 = session.get(page)
             if not r0.ok:
                 return None
 
@@ -121,7 +124,7 @@ class source:
 
             pdata = {"action": "getPlayer", "lang": lang, "key": base64.b64encode(b"0").decode()}
 
-            r1 = cfscraper.post(api_url, data=pdata, headers={"Referer": page}, cookies=cookies)
+            r1 = session.post(api_url, data=pdata, headers={"Referer": page}, cookies=cookies)
             if not r1.ok:
                 return None
 
@@ -134,7 +137,7 @@ class source:
             elif getads.startswith("/"):
                 getads = "https://fembed.sx" + getads
 
-            r2 = cfscraper.get(getads,
+            r2 = session.get(getads,
                                headers={"Referer": page, "X-Requested-With": "XMLHttpRequest"},
                                cookies=cookies)
             if not r2.ok:
@@ -164,7 +167,7 @@ class source:
         pt = cls.normalize_title(pt)
         original_title = cls.normalize_title(original_title or pt)
 
-        r = cfscraper.get(f"https://goflixy.lol/buscar?q={quote_plus(pt)}", headers={"User-Agent": USER_AGENT})
+        r = session.get(f"https://goflixy.lol/buscar?q={quote_plus(pt)}")
         if not r.ok:
             return []
 
@@ -188,7 +191,7 @@ class source:
                 continue
 
             page = urljoin("https://goflixy.lol", a.get("href"))
-            r2 = cfscraper.get(page, headers={"User-Agent": USER_AGENT})
+            r2 = session.get(page)
             if not r2.ok:
                 continue
 
@@ -232,7 +235,7 @@ class source:
         pt = cls.normalize_title(pt)
         original_title = cls.normalize_title(original_title or pt)
 
-        r = cfscraper.get(f"https://goflixy.lol/buscar?q={quote_plus(pt)}", headers={"User-Agent": USER_AGENT})
+        r = session.get(f"https://goflixy.lol/buscar?q={quote_plus(pt)}")
         if not r.ok:
             return []
 
@@ -258,7 +261,7 @@ class source:
         if not serie_url:
             return []
 
-        r2 = cfscraper.get(serie_url, headers={"User-Agent": USER_AGENT})
+        r2 = session.get(serie_url)
         if not r2.ok:
             return []
 

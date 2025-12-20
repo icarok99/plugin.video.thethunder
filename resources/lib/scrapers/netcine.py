@@ -1,11 +1,6 @@
 # -*- coding: utf-8 -*-
 WEBSITE = 'NETCINE'
 
-try:
-    from resources.lib.ClientScraper import USER_AGENT
-except Exception:
-    from ClientScraper import USER_AGENT
-
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import quote_plus, urljoin
