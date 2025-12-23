@@ -11,6 +11,7 @@
     </category>
     <category label="Fontes">
         <setting id="source_assistirbiz" type="bool" label="Assistirbiz" default="false"/>
+        <setting id="source_animesup" type="bool" label="Animesup" default="false"/>
         <setting id="source_cinevibehd" type="bool" label="Cinevibehd" default="false"/>
         <setting id="source_goflix" type="bool" label="Goflix" default="true"/>
         <setting id="source_netcine" type="bool" label="Netcine" default="false"/>

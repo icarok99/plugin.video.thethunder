@@ -34,6 +34,8 @@ def import_scripts(pasta):
         if addon_instance:
             if script == 'assistirbiz' and addon_instance.getSetting('source_assistirbiz') != 'true':
                 source_enabled = False
+            elif script == 'animesup' and addon_instance.getSetting('source_animesup') != 'true':
+                source_enabled = False
             elif script == 'cinevibehd' and addon_instance.getSetting('source_cinevibehd') != 'true':
                 source_enabled = False
             elif script == 'goflix' and addon_instance.getSetting('source_goflix') != 'true':
