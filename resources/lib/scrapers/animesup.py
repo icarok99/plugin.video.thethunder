@@ -97,13 +97,11 @@ class source:
             if title_tag:
                 strong = title_tag.find('strong')
                 if strong:
-                    mal_title = strong.get_text(strip=True)
-                    return cls.clean_search_title(mal_title)
+                    return cls.clean_search_title(strong.get_text(strip=True))
 
             strong = soup.find('strong')
             if strong:
-                mal_title = strong.get_text(strip=True)
-                return cls.clean_search_title(mal_title)
+                return cls.clean_search_title(strong.get_text(strip=True))
 
             return None
         except:
@@ -130,16 +128,14 @@ class source:
     @classmethod
     def _extract_video_urls(cls, episode_page_text):
         videos = {}
-
         containers = re.split(r'<div class="playerContainer"', episode_page_text)[1:]
 
         for i, container in enumerate(containers[:3]):
-            vid_match = re.search(r"var\s+vid\s*=\s*'([^']+\.mp4)';", container)
-            if not vid_match:
+            m = re.search(r"var\s+vid\s*=\s*'([^']+\.mp4)';", container)
+            if not m:
                 continue
 
-            url = vid_match.group(1).strip()
-
+            url = m.group(1).strip()
             if "r2.cloudflarestorage.com" not in url:
                 continue
 
@@ -153,36 +149,42 @@ class source:
         return videos
 
     @classmethod
-    def _get_highest_quality_link(cls, episode_page_text, available_qualities):
+    def _get_highest_quality_link(cls, episode_page_text, available):
         videos = cls._extract_video_urls(episode_page_text)
-
-        for qual in ["FULLHD", "HD", "SD"]:
-            if qual in available_qualities and qual in videos:
-                return (f"ANIMESUP - {qual}", videos[qual])
-
-        for qual in ["FULLHD", "HD", "SD"]:
-            if qual in videos:
-                return (f"ANIMESUP - {qual}", videos[qual])
-
-        return ("ANIMESUP - SD", None)
+        for q in ("FULLHD", "HD", "SD"):
+            if q in available and q in videos:
+                return f"ANIMESUP - {q}", videos[q]
+        return "ANIMESUP - SD", None
 
     @classmethod
     def _get_episode_page_url(cls, page_text, episode_num):
         pattern = re.compile(rf'(?:episodio|ep)[\s-]*{episode_num}\b', re.I)
         matches = list(pattern.finditer(page_text))
 
-        if matches:
-            for match in matches:
-                context = page_text[max(0, match.start()-200):match.end()+500]
-                link_match = re.search(r'href=["\'](/episodio/\d+)["\']', context)
-                if link_match:
-                    return urljoin("https://www.animesup.info/", link_match.group(1))
+        for match in matches:
+            context = page_text[max(0, match.start()-200):match.end()+500]
+            link = re.search(r'href=["\'](/episodio/\d+)["\']', context)
+            if link:
+                return urljoin("https://www.animesup.info/", link.group(1))
 
-        fallback_match = re.search(r'href=["\'](/episodio/\d+)["\']', page_text)
-        if fallback_match:
-            return urljoin("https://www.animesup.info/", fallback_match.group(1))
+        fallback = re.search(r'href=["\'](/episodio/\d+)["\']', page_text)
+        if fallback:
+            return urljoin("https://www.animesup.info/", fallback.group(1))
 
         return None
+
+    @classmethod
+    def _get_movie_episode_url(cls, page_text):
+        soup = BeautifulSoup(page_text, "html.parser")
+
+        for item in soup.select("div.ultimosEpisodiosHomeItem"):
+            text = item.get_text(" ", strip=True)
+            if re.search(r'\bfilme\b', text, re.I):
+                a = item.find("a", href=True)
+                if a:
+                    return urljoin("https://www.animesup.info/", a["href"])
+
+        return cls._get_episode_page_url(page_text, 1)
 
     @classmethod
     def search_movies(cls, imdb, year=None):
@@ -191,56 +193,50 @@ class source:
             return []
 
         norm_mal = cls.normalize_title(mal_title)
-
         search_url = f"https://www.animesup.info/busca?busca={quote_plus(mal_title)}"
         r = session.get(search_url)
         if not r.ok:
             return []
 
         soup = BeautifulSoup(r.text, "html.parser")
-
         valid_sources = []
-        seen_urls = set()
+        seen = set()
 
         for a in soup.find_all("a", href=re.compile(r"/(animes|anime-dublado)/[^/]+$")):
             title_text = a.get_text(strip=True)
-            clean = cls.normalize_title(title_text)
-            ratio = difflib.SequenceMatcher(None, norm_mal, clean).ratio()
-            if ratio < 0.75:
+            if difflib.SequenceMatcher(None, norm_mal, cls.normalize_title(title_text)).ratio() < 0.75:
                 continue
 
             page_url = urljoin("https://www.animesup.info/", a['href'])
-            if page_url in seen_urls:
+            if page_url in seen:
                 continue
-            seen_urls.add(page_url)
+            seen.add(page_url)
 
             r_page = session.get(page_url)
             if not r_page.ok:
                 continue
 
-            ep_page_url = cls._get_episode_page_url(r_page.text, 1)
-            if not ep_page_url:
+            ep_url = cls._get_movie_episode_url(r_page.text)
+            if not ep_url:
                 continue
 
-            r_ep = session.get(ep_page_url)
+            r_ep = session.get(ep_url)
             if not r_ep.ok:
                 continue
 
             available = cls._get_available_qualities(r_ep.text)
             label, url = cls._get_highest_quality_link(r_ep.text, available)
-
             if not url:
                 continue
 
-            label_prefix = "DUBLADO" if "dublado" in page_url.lower() or "dublado" in title_text.lower() else "LEGENDADO"
-            valid_sources.append((f"{label} ({label_prefix})", url))
+            prefix = "DUBLADO" if "dublado" in page_url.lower() or "dublado" in title_text.lower() else "LEGENDADO"
+            valid_sources.append((f"{label} ({prefix})", url))
 
         return valid_sources
 
     @classmethod
     def search_tvshows(cls, imdb, year, season, episode):
         try:
-            season = int(season)
             episode = int(episode)
         except:
             return []
@@ -250,12 +246,10 @@ class source:
             return []
 
         norm_mal = cls.normalize_title(mal_title)
-
         valid_sources = []
-        seen_urls = set()
+        seen = set()
 
-        queries = [mal_title, f"{mal_title} dublado"]
-        for query in queries:
+        for query in (mal_title, f"{mal_title} dublado"):
             search_url = f"https://www.animesup.info/busca?busca={quote_plus(query)}"
             r = session.get(search_url)
             if not r.ok:
@@ -264,53 +258,41 @@ class source:
             soup = BeautifulSoup(r.text, "html.parser")
             for a in soup.find_all("a", href=re.compile(r"/(animes|anime-dublado)/[^/]+$")):
                 title_text = a.get_text(strip=True)
-                clean = cls.normalize_title(title_text)
-                ratio = difflib.SequenceMatcher(None, norm_mal, clean).ratio()
-                if ratio < 0.50:
+                if difflib.SequenceMatcher(None, norm_mal, cls.normalize_title(title_text)).ratio() < 0.50:
                     continue
 
                 page_url = urljoin("https://www.animesup.info/", a['href'])
-                if page_url in seen_urls:
+                if page_url in seen:
                     continue
-                seen_urls.add(page_url)
+                seen.add(page_url)
 
                 r_page = session.get(page_url)
                 if not r_page.ok:
                     continue
 
-                ep_page_url = cls._get_episode_page_url(r_page.text, episode)
-                if not ep_page_url:
+                ep_url = cls._get_episode_page_url(r_page.text, episode)
+                if not ep_url:
                     continue
 
-                r_ep = session.get(ep_page_url)
+                r_ep = session.get(ep_url)
                 if not r_ep.ok:
                     continue
 
                 available = cls._get_available_qualities(r_ep.text)
                 label, url = cls._get_highest_quality_link(r_ep.text, available)
-
                 if not url:
                     continue
 
-                is_dub = ("dublado" in page_url.lower() or 
-                          "dublado" in title_text.lower() or 
-                          "dublado" in query.lower())
-                label_prefix = "DUBLADO" if is_dub else "LEGENDADO"
-
-                valid_sources.append((f"{label} ({label_prefix})", url))
+                prefix = "DUBLADO" if "dublado" in page_url.lower() or "dublado" in title_text.lower() or "dublado" in query.lower() else "LEGENDADO"
+                valid_sources.append((f"{label} ({prefix})", url))
 
         return valid_sources
 
     @classmethod
     def resolve_movies(cls, url):
-        streams = []
-        if not url:
-            return streams
         resolver = Resolver()
         resolved, sub = resolver.resolverurls(url)
-        resolved = resolved or url
-        streams.append((resolved, sub or '', USER_AGENT))
-        return streams
+        return [(resolved or url, sub or '', USER_AGENT)]
 
     @classmethod
     def resolve_tvshows(cls, url):
