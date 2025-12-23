@@ -1,7 +1,7 @@
 # resources/lib/update.py
 # -*- coding: utf-8 -*-
 '''
-Atualização automática do TheThunder - Branch: main
+Atualização automática do TheThunder - Branch: main2
 Agora com exclusão automática de scrapers removidos
 '''
 
@@ -23,8 +23,8 @@ RESOURCES_PATH = xbmcvfs.translatePath(os.path.join(ADDON_PATH, "resources"))
 # Arquivo local que guarda a data da última atualização
 LOCAL_VERSION = os.path.join(SCRAPERS_PATH, ".update")
 
-# Tudo agora da branch main
-BRANCH = "main"
+# Tudo agora da branch main2
+BRANCH = "main2"
 BASE_URL = f"https://raw.githubusercontent.com/icarok99/plugin.video.thethunder/{BRANCH}/"
 REMOTE_VERSION_URL = BASE_URL + "last_update.txt"
 RAW_SCRAPERS = BASE_URL + "resources/lib/scrapers/"
