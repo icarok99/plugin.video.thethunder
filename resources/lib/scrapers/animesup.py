@@ -71,16 +71,37 @@ class source:
 
     @classmethod
     def is_multi_variant_anime(cls, title):
-        t = title.lower()
+        t = title.lower() if title else ''
         return any(k in t for k in FRANCHISE_KEYWORDS)
 
     @classmethod
-    def strict_similarity(cls, mal_title, candidate_title):
+    def extract_year_from_title(cls, title):
+        """Extrai ano entre parênteses no título do animesup, ex: Pokemon (2019) → 2019"""
+        match = re.search(r'\((\d{4})\)', title)
+        return int(match.group(1)) if match else None
+
+    @classmethod
+    def strict_similarity(cls, mal_title, candidate_title, year=None, candidate_year=None):
         mal_norm = cls.normalize_title(mal_title)
         cand_norm = cls.normalize_title(candidate_title)
         ratio = difflib.SequenceMatcher(None, mal_norm, cand_norm).ratio()
+
+        # Penalidade geral para franquias com muitas variantes (exceto match exato)
         if cls.is_multi_variant_anime(mal_norm) and mal_norm != cand_norm:
             ratio *= 0.60
+
+        # Penalidade por diferença de ano – só aplica se AMBOS os anos forem conhecidos
+        if year is not None and candidate_year is not None and year != candidate_year:
+            diff = abs(year - candidate_year)
+            if diff >= 10:
+                ratio *= 0.3    # Muito improvável (ex: Pokémon 1997 vs 2023)
+            elif diff >= 5:
+                ratio *= 0.5
+            else:
+                ratio *= 0.8
+
+        # Se um dos anos for desconhecido → sem penalidade (aceita títulos sem ano, como a série original)
+
         return ratio
 
     @classmethod
@@ -103,23 +124,34 @@ class source:
         return title
 
     @classmethod
-    def get_mal_title(cls, imdb_id):
+    def get_mal_title_and_year(cls, imdb_id):
         imdb_url = f"https://m.imdb.com/title/{imdb_id}/"
+        year = None
         try:
-            r = session.get(imdb_url)
+            r = session.get(imdb_url, timeout=10)
             if not r.ok:
-                return None
+                return None, None
             soup = BeautifulSoup(r.text, 'html.parser')
+
+            # Título em inglês
             hero = soup.find('h1', {'data-testid': 'hero__pageTitle'})
             english_title = hero.get_text(strip=True) if hero else soup.find('h1').get_text(strip=True)
+
+            # Extrai ano do link de release info (mobile IMDb)
+            year_elem = soup.find('a', href=re.compile(r'/title/.*/releaseinfo'))
+            if year_elem:
+                year_text = year_elem.get_text(strip=True)
+                year_match = re.search(r'\d{4}', year_text)
+                if year_match:
+                    year = int(year_match.group(0))
         except:
-            return None
+            return None, None
 
         mal_search_url = f"https://myanimelist.net/anime.php?q={quote_plus(english_title)}&cat=anime"
         try:
-            r = session.get(mal_search_url)
+            r = session.get(mal_search_url, timeout=10)
             if not r.ok:
-                return None
+                return None, year
 
             soup = BeautifulSoup(r.text, 'html.parser')
             titles = []
@@ -132,10 +164,10 @@ class source:
                 titles.append(cls.clean_search_title(title))
 
             if not titles:
-                return None
+                return None, year
 
             if not cls.is_multi_variant_anime(english_title):
-                return titles[0]
+                return titles[0], year
 
             best_ratio = 0.0
             best_title = None
@@ -146,12 +178,12 @@ class source:
                     best_title = title
 
             if best_ratio < 0.80:
-                return None
+                return None, year
 
-            return best_title
+            return best_title, year
 
         except:
-            return None
+            return None, year
 
     @classmethod
     def _get_available_qualities(cls, episode_page_text):
@@ -199,6 +231,7 @@ class source:
             link = re.search(r'href=["\'](/episodio/\d+)["\']', context)
             if link:
                 return urljoin("https://www.animesup.info/", link.group(1))
+        # Fallback simples se não encontrar contexto
         link = re.search(r'href=["\'](/episodio/\d+)["\']', page_text)
         return urljoin("https://www.animesup.info/", link.group(1)) if link else None
 
@@ -214,7 +247,7 @@ class source:
 
     @classmethod
     def search_movies(cls, imdb, year=None):
-        mal_title = cls.get_mal_title(imdb)
+        mal_title, mal_year = cls.get_mal_title_and_year(imdb)
         if not mal_title:
             return []
 
@@ -224,18 +257,33 @@ class source:
         seen = set()
 
         search_url = f"https://www.animesup.info/busca?busca={quote_plus(search_title)}"
-        r = session.get(search_url)
+        r = session.get(search_url, timeout=15)
         if not r.ok:
             return []
 
         soup = BeautifulSoup(r.text, "html.parser")
+        candidates = soup.find_all("a", href=re.compile(r"/(animes|anime-dublado)/[^/]+$"))
 
-        for a in soup.find_all("a", href=re.compile(r"/(animes|anime-dublado)/[^/]+$")):
+        # Ordena candidatos priorizando melhor similaridade (considerando ano)
+        candidates = sorted(
+            candidates,
+            key=lambda a: -cls.strict_similarity(
+                mal_title,
+                cls.clean_search_title(a.get_text(strip=True)),
+                mal_year,
+                cls.extract_year_from_title(a.get_text(strip=True))
+            )
+        )
+
+        for a in candidates:
             raw_title = a.get_text(strip=True)
             title_text = cls.clean_search_title(raw_title)
+            candidate_year = cls.extract_year_from_title(raw_title)
+
+            ratio = cls.strict_similarity(mal_title, title_text, mal_year, candidate_year)
 
             if cls.is_multi_variant_anime(mal_title):
-                if cls.strict_similarity(mal_title, title_text) < 0.75:
+                if ratio < 0.75:
                     continue
 
             page_url = urljoin("https://www.animesup.info/", a['href'])
@@ -243,7 +291,7 @@ class source:
                 continue
             seen.add(page_url)
 
-            r_page = session.get(page_url)
+            r_page = session.get(page_url, timeout=15)
             if not r_page.ok:
                 continue
 
@@ -251,7 +299,7 @@ class source:
             if not ep_url:
                 continue
 
-            r_ep = session.get(ep_url)
+            r_ep = session.get(ep_url, timeout=15)
             if not r_ep.ok:
                 continue
 
@@ -272,7 +320,7 @@ class source:
         except:
             return []
 
-        mal_title = cls.get_mal_title(imdb)
+        mal_title, mal_year = cls.get_mal_title_and_year(imdb)
         if not mal_title:
             return []
 
@@ -282,19 +330,33 @@ class source:
         seen = set()
 
         search_url = f"https://www.animesup.info/busca?busca={quote_plus(search_title)}"
-        r = session.get(search_url)
+        r = session.get(search_url, timeout=15)
         if not r.ok:
             return []
 
         soup = BeautifulSoup(r.text, "html.parser")
-        for a in soup.find_all("a", href=re.compile(r"/(animes|anime-dublado)/[^/]+$")):
+        candidates = soup.find_all("a", href=re.compile(r"/(animes|anime-dublado)/[^/]+$"))
+
+        # Ordena candidatos priorizando melhor similaridade (considerando ano)
+        candidates = sorted(
+            candidates,
+            key=lambda a: -cls.strict_similarity(
+                mal_title,
+                cls.clean_search_title(a.get_text(strip=True)),
+                mal_year,
+                cls.extract_year_from_title(a.get_text(strip=True))
+            )
+        )
+
+        for a in candidates:
             raw_title = a.get_text(strip=True)
             title_text = cls.clean_search_title(raw_title)
+            candidate_year = cls.extract_year_from_title(raw_title)
 
-            ratio = cls.strict_similarity(mal_title, title_text)
+            ratio = cls.strict_similarity(mal_title, title_text, mal_year, candidate_year)
 
             if cls.is_multi_variant_anime(mal_title):
-                if ratio < 0.60:
+                if ratio < 0.70:
                     continue
 
             page_url = urljoin("https://www.animesup.info/", a['href'])
@@ -302,7 +364,7 @@ class source:
                 continue
             seen.add(page_url)
 
-            r_page = session.get(page_url)
+            r_page = session.get(page_url, timeout=15)
             if not r_page.ok:
                 continue
 
@@ -310,7 +372,7 @@ class source:
             if not ep_url:
                 continue
 
-            r_ep = session.get(ep_url)
+            r_ep = session.get(ep_url, timeout=15)
             if not r_ep.ok:
                 continue
 
