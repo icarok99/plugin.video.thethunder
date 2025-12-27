@@ -13,17 +13,17 @@ Antes de instalar o addon Thunder, você precisa instalar as seguintes dependên
 1. **script.module.kodi-helper**  
    Este módulo é necessário para o funcionamento adequado de várias funcionalidades do Kodi.
 
-   [**Baixar *script.module.kodi-helper***](https://github.com/icarok99/OneRepo/raw/refs/heads/master/matrix/script.module.kodi-helper/script.module.kodi-helper-0.0.4.zip)
+   [**Baixar *script.module.kodi-helper***](https://github.com/icarok99/oneplayhd.github.io/raw/refs/heads/master/script.module.kodi-helper/script.module.kodi-helper-0.0.4.zip)
 
 2. **service.subtitles.legendei**  
    Este serviço de legendas é fundamental para o addon Thunder exibir legendas corretamente.
 
-   [**Baixar *service.subtitles.legendei***](https://github.com/icarok99/OneRepo/raw/refs/heads/master/matrix/service.subtitles.legendei/service.subtitles.legendei-0.0.3.zip)
+   [**Baixar *service.subtitles.legendei***](https://github.com/icarok99/oneplayhd.github.io/raw/refs/heads/master/service.subtitles.legendei/service.subtitles.legendei-0.0.4.zip)
 
 3. **script.module.resolveurl**  
    Este módulo é nescessário pra resolver as URLs dos players.
 
-   [**Baixar *script.module.resolveurl***](https://github.com/icarok99/OneRepo/raw/refs/heads/master/matrix/script.module.resolveurl/script.module.resolveurl.zip)
+   [**Baixar *script.module.resolveurl***](https://github.com/icarok99/oneplayhd.github.io/raw/refs/heads/master/script.module.resolveurl/script.module.resolveurl-5.1.189.zip)
 
 ## 2. **Baixar Addon Thunder**
 
