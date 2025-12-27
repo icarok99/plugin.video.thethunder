@@ -15,8 +15,8 @@
         <setting label="Fontes apenas para filmes e séries" type="lsep" />
         <setting id="source_assistirbiz" type="bool" label="Assistirbiz" default="false"/>
         <setting id="source_cinevibehd" type="bool" label="Cinevibehd" default="false"/>
-        <setting id="source_goflix" type="bool" label="Goflix" default="true"/>
-        <setting id="source_netcine" type="bool" label="Netcine" default="false"/>
+        <setting id="source_goflix" type="bool" label="Goflix" default="false"/>
+        <setting id="source_netcine" type="bool" label="Netcine" default="true"/>
         <setting id="source_overflix" type="bool" label="Overflix" default="false"/>
         
         <setting label="Fonte apenas para animes.[CR]Quando for assistir filmes ou séries, desmarque a fonte Animesup" type="lsep" />
