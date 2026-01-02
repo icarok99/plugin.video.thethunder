@@ -194,11 +194,6 @@ def open_anime_api(id):
     return get_json(url)
 
 def open_anime_episodes_api(id):
-    cache_url = f'https://cache.jikan.moe/anime/{id}/episodes_full'
-    cached = get_json(cache_url)
-    if cached and 'episodes' in cached:
-        return cached['episodes']
-
     all_episodes = []
     page = 1
     first_request = True
@@ -224,9 +219,8 @@ def open_anime_episodes_api(id):
         if first_request:
             first_request = False
         else:
-            time.sleep(1.1)
+            time.sleep(0.4)
     
-    save_to_cache(cache_url, {'episodes': all_episodes})
     return all_episodes
 
 def open_anime_episode_api(id, episode):
