@@ -73,9 +73,9 @@ def router(params):
         addon.season_tvshow(video_id, year, season)
     elif action == "provider":
         if addon.is_auto_play_enabled():
-            addon.auto_play_preferred_language(imdbnumber, year, season, episode, video_title, genre, iconimage, fanart, description, is_anime=is_anime)
+            addon.auto_play_preferred_language(imdbnumber, year, season, episode, video_title, genre, iconimage, fanart, description, is_anime)
         else:
-            addon.list_server_links(imdbnumber, year, season, episode, name, video_title, genre, iconimage, fanart, description, is_anime=is_anime)
+            addon.list_server_links(imdbnumber, year, season, episode, name, video_title, genre, iconimage, fanart, description, is_anime)
     elif action == "play_resolve":
         addon.resolve_links(url, video_title, imdbnumber, year, season, episode, genre, iconimage, fanart, description, playable, is_anime)
     elif action == "settings":
