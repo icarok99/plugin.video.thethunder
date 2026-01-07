@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<settings>
+    <category label="Reprodução automática">
+        <setting id="auto_play_enabled" type="bool" label="Ativar reprodução automática" default="false" />
+        <setting id="preferred_language" type="enum" label="Idioma preferido" values="DUBLADO|LEGENDADO" default="0" enable="eq(-1,true)" />
+    </category>
+    
+    <category label="Cache">
+        <setting id="clear_cache" type="action" label="Limpar cache" action="RunScript(special://home/addons/plugin.video.thethunder/resources/lib/cache_manager.py,clear_cache)" />
+        <setting id="show_cache" type="action" label="Mostrar tamanho do cache" action="RunScript(special://home/addons/plugin.video.thethunder/resources/lib/cache_manager.py,show_cache)" />
+        <setting id="cache_ttl_days" type="number" label="Tempo de retenção do cache (dias)" default="7" />
+    </category>
+    
+    <category label="Fontes">
+        <setting label="Fontes apenas para as categorias filmes e series" type="lsep" />
+        <setting id="source_assistirbiz" type="bool" label="Assistirbiz" default="false"/>
+        <setting id="source_cinevibehd" type="bool" label="Cinevibehd" default="false"/>
+        <setting id="source_goflix" type="bool" label="Goflix" default="false"/>
+        <setting id="source_netcine" type="bool" label="Netcine" default="true"/>
+        <setting id="source_overflix" type="bool" label="Overflix" default="false"/>
+        
+        <setting label="Fonte apenas para categoria animes" type="lsep" />
+        <setting id="source_animesup" type="bool" label="Animesup" default="true"/>
+    </category>
+
+    <category label="Atualizações">
+        <setting id="update_resolveurl" type="action" label="Atualizar Resolve URL" 
+                 action="RunScript(special://home/addons/plugin.video.thethunder/resources/lib/resolveurl.py,update)" />
+    </category>
+</settings>
