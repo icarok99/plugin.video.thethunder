@@ -225,7 +225,7 @@ class thunder(myAddon):
         self.setcontent('videos')
         menus = [
             ('Popular animes', 'popular_animes', 'popular'),
-            ('Airing animes', 'airing_animes', 'airing'),
+            ('Season animes', 'airing_animes', 'airing'),
             ('Animes by year of release', 'animes_by_year', 'animes'),
             ('Search animes', 'search_animes', 'search'),
         ]
