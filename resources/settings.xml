@@ -23,7 +23,7 @@
         <setting id="source_animesup" type="bool" label="Animesup" default="true"/>
     </category>
 
-    <category label="Atualizações">
+    <category label="Resolve URL">
         <setting id="update_resolveurl" type="action" label="Atualizar Resolve URL" 
                  action="RunScript(special://home/addons/plugin.video.thethunder/resources/lib/resolveurl.py,update)" />
     </category>
