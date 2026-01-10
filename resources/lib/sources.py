@@ -34,9 +34,13 @@ def import_scripts(pasta):
                 source_enabled = False
             elif script == 'animesup' and addon_instance.getSetting('source_animesup') != 'true':
                 source_enabled = False
+            elif script == 'animesdigital' and addon_instance.getSetting('source_animesdigital') != 'true':
+                source_enabled = False
             elif script == 'cinevibehd' and addon_instance.getSetting('source_cinevibehd') != 'true':
                 source_enabled = False
             elif script == 'goflix' and addon_instance.getSetting('source_goflix') != 'true':
+                source_enabled = False
+            elif script == 'hinatasoul' and addon_instance.getSetting('source_hinatasoul') != 'true':
                 source_enabled = False
             elif script == 'netcine' and addon_instance.getSetting('source_netcine') != 'true':
                 source_enabled = False
@@ -56,8 +60,9 @@ def import_scripts(pasta):
 modules_import = import_scripts(scrapers)
 total_sites = len(modules_import)
 
-# Lista de scrapers que NÃO devem ser usados na busca de animes (são para filmes/séries live-action)
 NON_ANIME_SOURCES = ['assistirbiz', 'cinevibehd', 'goflix', 'netcine', 'overflix']
+
+NON_MOVIE_TV_SOURCES = ['animesup', 'animesdigital', 'hinatasoul']
 
 def search_movies(imdb, year):
     try:
@@ -67,8 +72,7 @@ def search_movies(imdb, year):
         pass    
     stream_movies = []
     for n, modulo in enumerate(modules_import):
-        # Pular ANIMESUP em buscas de filmes normais
-        if hasattr(modulo, 'WEBSITE') and modulo.WEBSITE == 'ANIMESUP':
+        if modulo.__name__ in NON_MOVIE_TV_SOURCES:
             continue
 
         count = n + 1
@@ -95,8 +99,7 @@ def search_tvshows(imdb, year, season, episode):
         pass
     stream_tvshows = []
     for n, modulo in enumerate(modules_import):
-        # Pular ANIMESUP em buscas de séries normais
-        if hasattr(modulo, 'WEBSITE') and modulo.WEBSITE == 'ANIMESUP':
+        if modulo.__name__ in NON_MOVIE_TV_SOURCES:
             continue
 
         count = n + 1
@@ -131,9 +134,7 @@ def search_animes(mal_id, season=None, episode=None):
     
     stream_animes = []
     for n, modulo in enumerate(modules_import):
-        # Pular scrapers que são exclusivamente para filmes/séries live-action
-        module_name = modulo.__name__
-        if module_name in NON_ANIME_SOURCES:
+        if modulo.__name__ in NON_ANIME_SOURCES:
             continue
 
         count = n + 1
