@@ -92,7 +92,7 @@ class source:
             r'\b(\d+)[ªº]?\s*(?:temporada|season|t|temp|s)\b',
             r'\b(temporada|season|t|temp|s)\s*(\d+)\b',
             r'\b(\d+)\s*(?:ª|º|st|nd|rd|th)?\s*(?:temporada|season)\b',
-            r'\b(\d+)\b',  # fallback para casos como "Boku no Hero 6"
+            r'\b(\d+)\b',
         ]
         for pattern in patterns:
             m = re.search(pattern, text_lower)
@@ -169,7 +169,7 @@ class source:
         page_num = 1
         while True:
             page_url = cls._build_page_url(series_url, page_num)
-            r = session.get(page_url, timeout=15)
+            r = session.get(page_url)
             if not r.ok:
                 break
             episodes = cls._extract_episode_links_from_page(r.text)
@@ -179,7 +179,7 @@ class source:
                 return urljoin("https://www.animesup.info/", episodes[episode_num])
             page_num += 1
 
-        r = session.get(series_url, timeout=15)
+        r = session.get(series_url)
         if r.ok:
             episodes = cls._extract_episode_links_from_page(r.text)
             if episodes:
@@ -233,8 +233,8 @@ class source:
         videos = cls._extract_video_urls(episode_page_text)
         for q in ("FULLHD", "HD", "SD"):
             if q in available and q in videos:
-                return f"ANIMESUP - {q}", videos[q]
-        return "ANIMESUP - SD", None
+                return f"ANIMESUP -", videos[q]
+        return "ANIMESUP -", None
 
     @classmethod
     def search_animes(cls, mal_id, season=None, episode=None):
@@ -246,7 +246,7 @@ class source:
             except:
                 return []
 
-        r = session.get(f"https://api.jikan.moe/v4/anime/{mal_id}/full", timeout=10)
+        r = session.get(f"https://api.jikan.moe/v4/anime/{mal_id}/full")
         if not r.ok:
             return []
 
@@ -260,7 +260,7 @@ class source:
         search_title = title_english or title_default
         search_url = f"https://www.animesup.info/busca?busca={quote_plus(search_title)}"
 
-        r = session.get(search_url, timeout=15)
+        r = session.get(search_url)
         if not r.ok:
             return []
 
@@ -295,34 +295,26 @@ class source:
                     expected_season = int(m.group(1))
                     break
 
-        # Palavras-chave base do anime (normalizadas) para match parcial
         base_keywords = set()
         for t in base_titles:
             clean = cls._clean_title(t)
             words = clean.split()
             if len(words) > 1:
-                base_keywords.update(words[:3])  # pega as primeiras palavras significativas (ex: boku no hero)
+                base_keywords.update(words[:3])
 
         for c in candidates:
             accept = False
 
-            # 1. Ano bate (prioridade alta)
             if base_year and c["year"] and base_year == c["year"]:
                 accept = True
-
-            # 2. Temporada bate (número)
             elif not is_movie and expected_season and c["season"] and c["season"] == expected_season:
                 accept = True
-
-            # 3. Novo: título contém keywords base + número da temporada (ex: "boku no hero 6")
             elif not is_movie and expected_season and c["season"] == expected_season:
                 clean_cand = c["clean_title"]
                 if any(kw in clean_cand for kw in base_keywords) and str(expected_season) in clean_cand:
                     accept = True
-
-            # 4. Fallback score
             if not accept:
-                min_score = 0.75 if 'dublado' in c["title"].lower() else 0.55  # abaixado um pouco
+                min_score = 0.75 if 'dublado' in c["title"].lower() else 0.55
                 if c["score"] >= min_score:
                     accept = True
 
@@ -333,7 +325,7 @@ class source:
                 continue
             seen.add(c["url"])
 
-            r_page = session.get(c["url"], timeout=15)
+            r_page = session.get(c["url"])
             if not r_page.ok:
                 continue
 
@@ -345,7 +337,7 @@ class source:
             if not ep_url:
                 continue
 
-            r_ep = session.get(ep_url, timeout=15)
+            r_ep = session.get(ep_url)
             if not r_ep.ok:
                 continue
 
@@ -355,7 +347,7 @@ class source:
                 continue
 
             prefix = "DUBLADO" if "dublado" in c["title"].lower() else "LEGENDADO"
-            final_label = f"{label} ({prefix})"
+            final_label = f"{label} {prefix}"
             results.append((final_label, url))
 
         return results
