@@ -19,9 +19,14 @@
         <setting id="source_netcine" type="bool" label="Netcine" default="true"/>
         <setting id="source_overflix" type="bool" label="Overflix" default="false"/>
         
-        <setting label="Fontes apenas para categoria animes" type="lsep" />
+        <setting label="Fonte apenas para categoria animes" type="lsep" />
         <setting id="source_animesup" type="bool" label="Animesup" default="true"/>
-        <setting id="source_animesdigital" type="bool" label="Animesdigital" default="false"/>
-        <setting id="source_hinatasoul" type="bool" label="Hinatasoul" default="false"/>
+        <setting id="source_animesdigital" type="bool" label="Animesdigital" default="true"/>
+        <setting id="source_hinatasoul" type="bool" label="Hinatasoul" default="true"/>
+    </category>
+
+    <category label="Resolve URL">
+        <setting id="update_resolveurl" type="action" label="Atualizar Resolve URL" 
+                 action="RunScript(special://home/addons/plugin.video.thethunder/resources/lib/resolveurl.py,update)" />
     </category>
 </settings>
