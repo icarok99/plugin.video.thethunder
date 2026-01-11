@@ -133,23 +133,31 @@ def movies_api(page, t):
     return 0, []
 
 def tv_shows_popular_api(page):
-    url = f'https://api.themoviedb.org/3/tv/popular?api_key={API_KEY}&page={page}&language={AutoTranslate.language("lang-api")}'
+    url = f'https://api.themoviedb.org/3/discover/tv?api_key={API_KEY}&page={page}&language={AutoTranslate.language("lang-api")}&sort_by=popularity.desc&without_keywords=210024&include_adult=false&vote_average.lte=10&vote_count.gte=100'
     src = get_json(url)
     return src.get('total_pages', 0), src.get('results', [])
 
 def tv_shows_trending_api(page):
-    url = f'https://api.themoviedb.org/3/trending/tv/day?api_key={API_KEY}&page={page}&language={AutoTranslate.language("lang-api")}'
+    url = f'https://api.themoviedb.org/3/discover/tv?api_key={API_KEY}&page={page}&language={AutoTranslate.language("lang-api")}&sort_by=popularity.desc&without_keywords=210024,161919&include_adult=false'
     src = get_json(url)
     return src.get('total_pages', 0), src.get('results', [])
 
 def search_movies_api(search, page):
     url = f'https://api.themoviedb.org/3/search/multi?api_key={API_KEY}&query={quote(search)}&page={page}&language={AutoTranslate.language("lang-api")}'
     src = get_json(url)
-    return src.get('total_pages', 0), src.get('results', [])
+    results = src.get('results', [])
+    
+    filtered = [
+        item for item in results
+        if item.get('original_language') != 'ja'
+    ]
+    
+    src['results'] = filtered
+    return src.get('total_pages', 0), filtered
 
 def tv_shows_premiere_api(page):
     year = get_current_date()
-    url = f'https://api.themoviedb.org/3/discover/tv?api_key={API_KEY}&sort_by=popularity.desc&first_air_date_year={year}&page={page}&language={AutoTranslate.language("lang-api")}'
+    url = f'https://api.themoviedb.org/3/discover/tv?api_key={API_KEY}&sort_by=popularity.desc&first_air_date_year={year}&page={page}&language={AutoTranslate.language("lang-api")}&without_keywords=210024'
     src = get_json(url)
     return src.get('total_pages', 0), src.get('results', [])
 
@@ -244,7 +252,14 @@ def search_tv_by_title(title, year=None):
         url = f'https://api.themoviedb.org/3/search/tv?api_key={API_KEY}&language={AutoTranslate.language("lang-api")}&query={q}'
         if year:
             url += f'&first_air_date_year={year}'
-        return get_json(url)
+        
+        src = get_json(url)
+        results = src.get('results', [])
+        
+        filtered = [item for item in results if item.get('original_language') != 'ja']
+        
+        src['results'] = filtered
+        return src
     except:
         return {}
 
