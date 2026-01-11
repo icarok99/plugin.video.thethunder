@@ -145,15 +145,7 @@ def tv_shows_trending_api(page):
 def search_movies_api(search, page):
     url = f'https://api.themoviedb.org/3/search/multi?api_key={API_KEY}&query={quote(search)}&page={page}&language={AutoTranslate.language("lang-api")}'
     src = get_json(url)
-    results = src.get('results', [])
-    
-    filtered = [
-        item for item in results
-        if item.get('original_language') != 'ja'
-    ]
-    
-    src['results'] = filtered
-    return src.get('total_pages', 0), filtered
+    return src.get('total_pages', 0), src.get('results', [])
 
 def tv_shows_premiere_api(page):
     year = get_current_date()
@@ -253,13 +245,7 @@ def search_tv_by_title(title, year=None):
         if year:
             url += f'&first_air_date_year={year}'
         
-        src = get_json(url)
-        results = src.get('results', [])
-        
-        filtered = [item for item in results if item.get('original_language') != 'ja']
-        
-        src['results'] = filtered
-        return src
+        return get_json(url)
     except:
         return {}
 
