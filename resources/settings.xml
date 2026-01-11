@@ -21,8 +21,8 @@
         
         <setting label="Fonte apenas para categoria animes" type="lsep" />
         <setting id="source_animesup" type="bool" label="Animesup" default="true"/>
-        <setting id="source_animesdigital" type="bool" label="Animesdigital" default="true"/>
-        <setting id="source_hinatasoul" type="bool" label="Hinatasoul" default="true"/>
+        <setting id="source_animesdigital" type="bool" label="Animesdigital" default="false"/>
+        <setting id="source_hinatasoul" type="bool" label="Hinatasoul" default="false"/>
     </category>
 
     <category label="Resolve URL">
