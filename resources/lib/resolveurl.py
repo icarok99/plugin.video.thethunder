@@ -14,7 +14,7 @@ def download_and_install(url, name):
     addon_path = xbmcvfs.translatePath('special://home/addons/')
     temp_zip = os.path.join(addon_path, 'temp_resolveurl.zip')
 
-    correct_path = os.path.join(addon_path, 'script.module.resolveurl')
+    correct_path = os.path.join(addon_path, 'script.module.resolveurl.fork')
     wrong_path = os.path.join(addon_path, 'script.module.resolveurl-main')
 
     try:
