@@ -113,7 +113,7 @@ class thunder(myAddon):
         if not menus_links:
             return None, None
         preferred_lang = self.get_preferred_language().upper()
-        TOP_HOSTS = ["FILEMOON", "DOODSTREAM", "STREAMTAPE", "MIXDROP", "WAREZCDN"]
+        TOP_HOSTS = ["DOODSTREAM", "STREAMTAPE", "MIXDROP", "FILEMOON"]
 
         def get_priority_score(label, url=""):
             label_u = (label or "").upper()
