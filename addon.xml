@@ -4,7 +4,6 @@
         <import addon="script.module.requests" />
         <import addon="script.module.resolveurl.fork" />
         <import addon="script.module.kodi-helper" />
-        <import addon="service.subtitles.legendei" />
         <import addon="xbmc.python" version="3.0.0" />
     </requires>
     <extension point="xbmc.python.pluginsource" library="thethunder.py">
