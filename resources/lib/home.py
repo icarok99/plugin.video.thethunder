@@ -17,12 +17,13 @@ def router(params):
     codec = params.get("codec", "")
     playable = params.get("playable", "")
     duration = params.get("duration", "")
-    originaltitle = params.get("originaltitle", "")
-    imdbnumber = params.get("imdbnumber", "")
+    original_name = params.get("original_name", "")
+    imdb = params.get("imdb", "")
+    mal_id = params.get("mal_id", "")
     aired = params.get("aired", "")
     genre = params.get("genre", "")
-    season = params.get("season", "")
-    episode = params.get("episode", "")
+    season_num = params.get("season_num", "")
+    episode_num = params.get("episode_num", "")
     year = params.get("year", "")
     video_title = params.get("video_title", "")
     search_text = params.get("search", "")
@@ -32,6 +33,9 @@ def router(params):
     is_anime = params.get("is_anime", "false")
     anime_year = params.get("anime_year", "")
     anime_season = params.get("anime_season", "")
+    movie_name = params.get("movie_name", "")
+    serie_name = params.get("serie_name", "")
+    anime_name = params.get("anime_name", "")
 
     if action is None:
         addon.home()
@@ -68,16 +72,16 @@ def router(params):
     elif action == "animes_by_season":
         addon.pagination_animes_by_season(anime_year, anime_season, page)
     elif action == "details":
-        addon.details(video_id, year, iconimage, fanart, description, mediatype, is_anime)
+        addon.details(video_id, year, iconimage, fanart, description, mediatype, is_anime, movie_name, serie_name, anime_name, original_name)
     elif action == "season_tvshow":
-        addon.season_tvshow(video_id, year, season)
+        addon.season_tvshow(video_id, year, season_num, original_name)
     elif action == "provider":
         if addon.is_auto_play_enabled():
-            addon.auto_play_preferred_language(imdbnumber, year, season, episode, video_title, genre, iconimage, fanart, description, is_anime)
+            addon.auto_play_preferred_language(imdb, mal_id, year, season_num, episode_num, video_title, genre, iconimage, fanart, description, is_anime, movie_name, serie_name, anime_name, original_name)
         else:
-            addon.list_server_links(imdbnumber, year, season, episode, name, video_title, genre, iconimage, fanart, description, is_anime)
+            addon.list_server_links(imdb, mal_id, year, season_num, episode_num, name, video_title, genre, iconimage, fanart, description, is_anime, movie_name, serie_name, anime_name, original_name)
     elif action == "play_resolve":
-        addon.resolve_links(url, video_title, imdbnumber, year, season, episode, genre, iconimage, fanart, description, playable, is_anime)
+        addon.resolve_links(url, video_title, imdb, mal_id, year, season_num, episode_num, genre, iconimage, fanart, description, playable, is_anime, movie_name, serie_name, anime_name, original_name)
     elif action == "settings":
         xbmcaddon.Addon().openSettings()
     elif action == "clear_cache":

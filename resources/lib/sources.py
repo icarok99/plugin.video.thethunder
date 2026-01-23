@@ -58,11 +58,15 @@ def import_scripts(pasta):
     return modulos
 
 modules_import = import_scripts(scrapers)
-total_sites = len(modules_import)
 
+ANIME_SOURCES = ['animesup', 'animesdigital', 'hinatasoul']
 NON_ANIME_SOURCES = ['assistirbiz', 'cinevibehd', 'goflix', 'netcine', 'overflix']
 
-NON_MOVIE_TV_SOURCES = ['animesup', 'animesdigital', 'hinatasoul']
+def get_anime_scrapers():
+    return [m for m in modules_import if m.__name__ in ANIME_SOURCES]
+
+def get_non_anime_scrapers():
+    return [m for m in modules_import if m.__name__ in NON_ANIME_SOURCES]
 
 def search_movies(imdb, year):
     try:
@@ -71,12 +75,9 @@ def search_movies(imdb, year):
     except:
         pass    
     stream_movies = []
-    for n, modulo in enumerate(modules_import):
-        if modulo.__name__ in NON_MOVIE_TV_SOURCES:
-            continue
-
+    for n, modulo in enumerate(get_non_anime_scrapers()):
         count = n + 1
-        update = int(count / total_sites * 100)
+        update = int(count / len(get_non_anime_scrapers()) * 100) if get_non_anime_scrapers() else 0
         stream_movies.append(modulo.source.search_movies(imdb, year))
         try:
             dp.update(update, str(modulo.WEBSITE))
@@ -89,6 +90,10 @@ def search_movies(imdb, year):
                 for s in streams:
                     name, page = s
                     streams_final.append((name, page))
+    try:
+        dp.close()
+    except:
+        pass
     return streams_final
 
 def search_tvshows(imdb, year, season, episode):
@@ -98,12 +103,9 @@ def search_tvshows(imdb, year, season, episode):
     except:
         pass
     stream_tvshows = []
-    for n, modulo in enumerate(modules_import):
-        if modulo.__name__ in NON_MOVIE_TV_SOURCES:
-            continue
-
+    for n, modulo in enumerate(get_non_anime_scrapers()):
         count = n + 1
-        update = int(count / total_sites * 100)
+        update = int(count / len(get_non_anime_scrapers()) * 100) if get_non_anime_scrapers() else 0
         stream_tvshows.append(modulo.source.search_tvshows(imdb, year, season, episode))
         try:
             dp.update(update, str(modulo.WEBSITE))
@@ -116,6 +118,10 @@ def search_tvshows(imdb, year, season, episode):
                 for s in streams:
                     name, page = s
                     streams_final.append((name, page))
+    try:
+        dp.close()
+    except:
+        pass
     return streams_final
 
 def show_content(imdb, year, season, episode):
@@ -133,12 +139,9 @@ def search_animes(mal_id, season=None, episode=None):
         pass
     
     stream_animes = []
-    for n, modulo in enumerate(modules_import):
-        if modulo.__name__ in NON_ANIME_SOURCES:
-            continue
-
+    for n, modulo in enumerate(get_anime_scrapers()):
         count = n + 1
-        update = int(count / total_sites * 100)
+        update = int(count / len(get_anime_scrapers()) * 100) if get_anime_scrapers() else 0
         
         if hasattr(modulo.source, 'search_animes'):
             result = modulo.source.search_animes(mal_id, season or '1', episode)
@@ -158,6 +161,10 @@ def search_animes(mal_id, season=None, episode=None):
             for s in streams:
                 name, page = s
                 streams_final.append((name, page))
+    try:
+        dp.close()
+    except:
+        pass
     return streams_final
 
 def show_content_anime(mal_id, year, season=None, episode=None):
@@ -166,7 +173,7 @@ def show_content_anime(mal_id, year, season=None, episode=None):
 def resolve_movies(url):
     stream = ''
     sub = ''
-    for modulo in modules_import:
+    for modulo in get_non_anime_scrapers():
         if not stream:
             source = modulo.source.resolve_movies(url)
             if len(source) > 0:
@@ -178,7 +185,7 @@ def resolve_movies(url):
 def resolve_tvshows(url):
     stream = ''
     sub = ''
-    for modulo in modules_import:
+    for modulo in get_non_anime_scrapers():
         if not stream:
             source = modulo.source.resolve_tvshows(url)
             if len(source) > 0:

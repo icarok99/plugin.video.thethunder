@@ -113,7 +113,7 @@ class thunder(myAddon):
         if not menus_links:
             return None, None
         preferred_lang = self.get_preferred_language().upper()
-        TOP_HOSTS = ["DOODSTREAM", "STREAMTAPE", "MIXDROP", "FILEMOON"]
+        TOP_HOSTS = ["FILEMOON", "DOODSTREAM", "STREAMTAPE", "MIXDROP", "WAREZCDN"]
 
         def get_priority_score(label, url=""):
             label_u = (label or "").upper()
@@ -149,29 +149,28 @@ class thunder(myAddon):
                 continue
         return None, None
 
-    def auto_play_preferred_language(self, content_id, year, season, episode, video_title, genre, iconimage, fanart, description, is_anime='false'):
+    def auto_play_preferred_language(self, imdb, mal_id, year, season_num, episode_num, video_title, genre, iconimage, fanart, description, is_anime='false', movie_name='', serie_name='', anime_name='', original_name=''):
         try:
             if is_anime == 'true':
-                menus_links = sources.show_content_anime(content_id, year, season, episode)
+                menus_links = sources.show_content_anime(mal_id, year, season_num, episode_num)
             else:
-                menus_links = sources.show_content(content_id, year, season, episode)
+                menus_links = sources.show_content(imdb, year, season_num, episode_num)
             if not menus_links:
                 self.notify_no_sources()
                 return False
-            stream, sub = self.try_resolve_with_fallback(menus_links, season, episode)
+            stream, sub = self.try_resolve_with_fallback(menus_links, season_num, episode_num)
             if not stream:
                 self.notify_stream_unavailable()
                 return False
-            self.stop_if_playing()
             showtitle = episode_title = video_title
-            if season and episode:
+            if season_num and episode_num:
                 if " - " in video_title:
                     showtitle, episode_title = video_title.split(" - ", 1)
                 else:
-                    episode_title = f"{AutoTranslate.language('Episode')} {episode}"
-            li = xbmcgui.ListItem(label=episode_title if season and episode else video_title)
+                    episode_title = f"{AutoTranslate.language('Episode')} {episode_num}"
+            li = xbmcgui.ListItem(label=episode_title if season_num and episode_num else video_title)
             li.setArt({'thumb': iconimage, 'icon': iconimage, 'fanart': fanart})
-            if season and episode:
+            if season_num and episode_num:
                 set_listitem_info(li, episode_title, description, showtitle, 'episode')
             else:
                 set_listitem_info(li, video_title, description, mediatype='movie')
@@ -301,7 +300,27 @@ class thunder(myAddon):
             icon = f"https://image.tmdb.org/t/p/w500{item.get('poster_path')}" if item.get('poster_path') else default_icon
             fanart = f"https://image.tmdb.org/t/p/original{item.get('backdrop_path')}" if item.get('backdrop_path') else ''
             description = item.get('overview', '')
-            self.addMenuItem({'name': fullname, 'action': 'details', 'video_id': str(item['id']), 'year': year, 'iconimage': icon, 'fanart': fanart, 'description': description, 'mediatype': mediatype}, folder=True)
+            original_title = item.get('original_title') or item.get('original_name') or title
+            
+            params = {
+                'name': fullname,
+                'action': 'details',
+                'video_id': str(item['id']),
+                'year': year,
+                'iconimage': icon,
+                'fanart': fanart,
+                'description': description,
+                'mediatype': mediatype,
+                'original_name': original_title
+            }
+            
+            if mediatype == 'movie':
+                params['movie_name'] = title
+            else:
+                params['serie_name'] = title
+            
+            self.addMenuItem(params, folder=True)
+        
         if int(page) + 1 <= total_pages:
             self.addMenuItem({'name': f"[B]{AutoTranslate.language('Page')}{int(page)+1}{AutoTranslate.language('of')}{total_pages}[/B]", 'action': action, 'page': str(int(page) + 1), 'iconimage': self.icon('next'), 'mediatype': mediatype})
         self.end()
@@ -314,58 +333,41 @@ class thunder(myAddon):
             year = item.get('year')
             year = str(year) if year is not None else '0'
 
-            airing = item.get('airing', False)
-            if not airing:
-                status = "\n[COLOR yellow]Não lançado ainda[/COLOR]"
-            else:
-                status = ""
-
-            fullname = f"{title} ({year}){status}" if year and year != '0' else f"{title}{status}"
+            fullname = f"{title} ({year})" if year and year != '0' else title
             icon = item.get('images', {}).get('jpg', {}).get('large_image_url') if item.get('images') else default_icon
             fanart = item.get('images', {}).get('jpg', {}).get('large_image_url') if item.get('images') else ''
             description = item.get('synopsis', '')
-            params = {'name': fullname, 'action': 'details', 'video_id': str(item['mal_id']), 'year': year, 'iconimage': icon, 'fanart': fanart, 'description': description, 'mediatype': mediatype, 'is_anime': 'true'}
-            if extra_params:
-                params.update(extra_params)
+            mediatype_item = 'movie' if item.get('type') == 'Movie' else 'tvshow'
+            
+            params = {
+                'name': fullname,
+                'action': 'details',
+                'video_id': str(item['mal_id']),
+                'year': year,
+                'iconimage': icon,
+                'fanart': fanart,
+                'description': description,
+                'mediatype': mediatype_item,
+                'is_anime': 'true',
+                'anime_name': title
+            }
+            
             self.addMenuItem(params, folder=True)
+        
         if int(page) + 1 <= total_pages:
-            params = {'name': f"[B]{AutoTranslate.language('Page')}{int(page)+1}{AutoTranslate.language('of')}{total_pages}[/B]", 'action': action, 'page': str(int(page) + 1), 'iconimage': self.icon('next'), 'mediatype': mediatype}
+            next_params = {
+                'name': '[B]' + AutoTranslate.language('Page') + f"{int(page)+1}" + AutoTranslate.language('of') + f"{total_pages}" + '[/B]',
+                'action': action,
+                'page': str(int(page) + 1),
+                'iconimage': self.icon('next'),
+                'mediatype': 'tvshow'
+            }
             if extra_params:
-                params.update(extra_params)
-            self.addMenuItem(params)
+                next_params.update(extra_params)
+            self.addMenuItem(next_params)
         self.end()
 
-    def search_movies(self, search=None, page=1):
-        if not search:
-            search = self.input_text(AutoTranslate.language('Search movies'))
-        if search:
-            self.pagination_search_movies(search, page)
-        else:
-            self.notify_invalid_search()
-
-    def pagination_search_movies(self, search, page):
-        self._pagination_search_generic(search, page, 'movie', 'search_movies', self.icon('movies'))
-
-    def search_tv_shows(self, search=None, page=1):
-        if not search:
-            search = self.input_text(AutoTranslate.language('Search tv shows'))
-        if search:
-            self.pagination_search_tv_shows(search, page)
-        else:
-            self.notify_invalid_search()
-
-    def pagination_search_tv_shows(self, search, page):
-        self._pagination_search_generic(search, page, 'tv', 'search_tv_shows', self.icon('series'))
-
-    def search_animes(self, search=None, page=1):
-        if not search:
-            search = self.input_text(AutoTranslate.language('Search'))
-        if search:
-            self.pagination_search_animes(search, page)
-        else:
-            self.notify_invalid_search()
-
-    def pagination_search_animes(self, search, page):
+    def _pagination_search_anime(self, search, page):
         self.setcontent('tvshows')
         total_pages, results = httpclient.search_animes_api(search, page)
         for item in results:
@@ -377,7 +379,22 @@ class thunder(myAddon):
             fanart = item.get('images', {}).get('jpg', {}).get('large_image_url') if item.get('images') else ''
             description = item.get('synopsis', '')
             mediatype = 'movie' if item.get('type') == 'Movie' else 'tvshow'
-            self.addMenuItem({'name': fullname, 'action': 'details', 'video_id': str(item['mal_id']), 'year': year, 'iconimage': icon, 'fanart': fanart, 'description': description, 'mediatype': mediatype, 'is_anime': 'true'}, folder=True)
+            
+            params = {
+                'name': fullname,
+                'action': 'details',
+                'video_id': str(item['mal_id']),
+                'year': year,
+                'iconimage': icon,
+                'fanart': fanart,
+                'description': description,
+                'mediatype': mediatype,
+                'is_anime': 'true',
+                'anime_name': title
+            }
+            
+            self.addMenuItem(params, folder=True)
+        
         if int(page) + 1 <= total_pages:
             self.addMenuItem({'name': '[B]' + AutoTranslate.language('Page') + f"{int(page)+1}" + AutoTranslate.language('of') + f"{total_pages}" + '[/B]', 'action': 'search_animes', 'page': str(int(page) + 1), 'search': search, 'iconimage': self.icon('next'), 'mediatype': 'tvshow'})
         self.end()
@@ -394,7 +411,27 @@ class thunder(myAddon):
             icon = f"https://image.tmdb.org/t/p/w500{item.get('poster_path')}" if item.get('poster_path') else default_icon
             fanart = f"https://image.tmdb.org/t/p/original{item.get('backdrop_path')}" if item.get('backdrop_path') else ''
             description = item.get('overview', '')
-            self.addMenuItem({'name': fullname, 'action': 'details', 'video_id': str(item['id']), 'year': year, 'iconimage': icon, 'fanart': fanart, 'description': description, 'mediatype': 'movie' if filter_type == 'movie' else 'tvshow'}, folder=True)
+            original_title = item.get('original_title') or item.get('original_name') or title
+            
+            params = {
+                'name': fullname,
+                'action': 'details',
+                'video_id': str(item['id']),
+                'year': year,
+                'iconimage': icon,
+                'fanart': fanart,
+                'description': description,
+                'mediatype': 'movie' if filter_type == 'movie' else 'tvshow',
+                'original_name': original_title
+            }
+            
+            if filter_type == 'movie':
+                params['movie_name'] = title
+            else:
+                params['serie_name'] = title
+            
+            self.addMenuItem(params, folder=True)
+        
         if int(page) + 1 <= total_pages:
             self.addMenuItem({'name': '[B]' + AutoTranslate.language('Page') + f"{int(page)+1}" + AutoTranslate.language('of') + f"{total_pages}" + '[/B]', 'action': action, 'page': str(int(page) + 1), 'search': search, 'iconimage': self.icon('next'), 'mediatype': 'movie' if filter_type == 'movie' else 'tvshow'})
         self.end()
@@ -419,7 +456,7 @@ class thunder(myAddon):
                 return int(m.group(1))
         return 1
 
-    def details(self, video_id, year, iconimage, fanart, description, mediatype, is_anime='false'):
+    def details(self, video_id, year, iconimage, fanart, description, mediatype, is_anime='false', movie_name='', serie_name='', anime_name='', original_name=''):
         if not all([video_id, year, iconimage, fanart, description, mediatype]):
             self.notify(AutoTranslate.language("invalid_params"))
             return
@@ -429,8 +466,8 @@ class thunder(myAddon):
                 if not show_src or 'data' not in show_src:
                     raise Exception("Nenhum dado retornado da Jikan API")
                 show_src = show_src['data']
-                content_id = str(show_src['mal_id'])
-                title = show_src.get('title_english') or show_src.get('title')
+                mal_id = str(show_src['mal_id'])
+                title = anime_name or show_src.get('title_english') or show_src.get('title')
                 description = show_src.get('synopsis', description)
                 anime_type = show_src.get('type')
                 year = str(show_src.get('year') or year)
@@ -439,11 +476,11 @@ class thunder(myAddon):
                 season_number = self.extract_season_number(show_src)
 
                 if self.is_auto_play_enabled() and anime_type == 'Movie':
-                    success = self.auto_play_preferred_language(content_id, year, None, None, title, genre, iconimage, fanart, description, is_anime='true')
+                    success = self.auto_play_preferred_language(None, mal_id, year, None, None, title, genre, iconimage, fanart, description, is_anime='true', anime_name=title, original_name=original_name)
                     if success:
                         return
                 if anime_type == 'Movie':
-                    menus_links = sources.show_content_anime(content_id, year)
+                    menus_links = sources.show_content_anime(mal_id, year)
                     if not menus_links:
                         raise Exception("No menu links found")
                     self.setcontent('videos')
@@ -457,10 +494,12 @@ class thunder(myAddon):
                             'fanart': fanart,
                             'playable': 'false',
                             'description': description,
-                            'imdbnumber': content_id,
+                            'mal_id': mal_id,
                             'year': year,
                             'mediatype': 'video',
-                            'is_anime': 'true'
+                            'is_anime': 'true',
+                            'anime_name': title,
+                            'original_name': original_name
                         }, folder=False)
                     self.end()
                 else:
@@ -486,34 +525,52 @@ class thunder(myAddon):
                         self.addMenuItem({
                             'name': name,
                             'action': 'provider',
-                            'video_id': video_id,
+                            'mal_id': mal_id,
                             'year': year,
-                            'season': str(season_number),
-                            'episode': str(epnum),
+                            'season_num': str(season_number),
+                            'episode_num': str(epnum),
                             'iconimage': icon,
                             'fanart': fanart,
                             'description': description,
-                            'imdbnumber': content_id,
-                            'title': title,
                             'video_title': f"{title} - {ep_name}",
                             'mediatype': 'episode',
                             'genre': genre,
-                            'is_anime': 'true'
+                            'is_anime': 'true',
+                            'anime_name': title,
+                            'original_name': original_name
                         }, folder=True)
                     self.end()
             else:
                 if mediatype == 'movie':
                     show_src = httpclient.open_movie_api(video_id)
+                    imdb_id = show_src.get('imdb_id')
+                    external_ids = show_src.get('external_ids')
+                    if external_ids:
+                        imdb_external = external_ids.get('imdb_id')
+                    else:
+                        imdb_external = ''
+                    if imdb_id:
+                        imdb = imdb_id
+                    else:
+                        imdb = imdb_external
                 else:
                     show_src = httpclient.open_season_api(video_id)
+                    external_ids = show_src.get('external_ids')
+                    if external_ids:
+                        imdb = external_ids.get('imdb_id')
+                    else:
+                        imdb = ''
+                        
                 if not show_src:
                     raise Exception("Nenhum dado retornado da API")
-                imdb = show_src.get('external_ids', {}).get('imdb_id', '') or ''
-                title = show_src.get('name') or show_src.get('title') or ''
+                    
+                title = movie_name or serie_name or show_src.get('name') or show_src.get('title') or ''
+                if not original_name:
+                    original_name = show_src.get('original_title') or show_src.get('original_name') or title
                 genre_list = [g['name'] for g in show_src.get('genres', [])]
                 genre = ', '.join(genre_list)
                 if self.is_auto_play_enabled() and mediatype == 'movie' and imdb:
-                    success = self.auto_play_preferred_language(imdb, year, None, None, title, genre, iconimage, fanart, description)
+                    success = self.auto_play_preferred_language(imdb, None, year, None, None, title, genre, iconimage, fanart, description, movie_name=title, original_name=original_name)
                     if success:
                         return
                 if mediatype == 'movie':
@@ -532,9 +589,11 @@ class thunder(myAddon):
                                 'fanart': fanart,
                                 'playable': 'false',
                                 'description': description,
-                                'imdbnumber': imdb,
+                                'imdb': imdb,
                                 'year': year,
-                                'mediatype': 'video'
+                                'mediatype': 'video',
+                                'movie_name': title,
+                                'original_name': original_name
                             }, folder=False)
                         self.end()
                     else:
@@ -553,29 +612,40 @@ class thunder(myAddon):
                             'name': season_name,
                             'action': 'season_tvshow',
                             'video_id': video_id,
+                            'imdb': imdb,
                             'year': year,
                             'iconimage': icon,
                             'fanart': fanart,
                             'description': season.get('overview', ''),
-                            'season': str(season['season_number']),
-                            'mediatype': 'season'
+                            'season_num': str(season['season_number']),
+                            'mediatype': 'season',
+                            'serie_name': title,
+                            'original_name': original_name
                         }, folder=True)
                     self.end()
         except Exception:
             self.notify(AutoTranslate.language("Failed to load details"))
 
-    def season_tvshow(self, video_id, year, season):
-        if not video_id or season is None:
+    def season_tvshow(self, video_id, year, season_num, original_name='', imdb='', serie_name=''):
+        if not video_id or season_num is None:
             self.notify(AutoTranslate.language("invalid_params"))
             return
         try:
-            show_src = httpclient.open_season_api(video_id)
-            imdb = show_src.get('external_ids', {}).get('imdb_id', '') or ''
-            title_show = show_src.get('name') or show_src.get('title') or ''
+            if not imdb:
+                show_src = httpclient.open_season_api(video_id)
+                external_ids = show_src.get('external_ids')
+                if external_ids:
+                    imdb = external_ids.get('imdb_id')
+                else:
+                    imdb = ''
+                title_show = serie_name or show_src.get('name') or show_src.get('title') or ''
+                if not original_name:
+                    original_name = show_src.get('original_name') or show_src.get('original_title') or title_show
+            else:
+                title_show = serie_name or ''
         except Exception:
-            imdb = ''
-            title_show = ''
-        src = httpclient.show_episode_api(video_id, season)
+            title_show = serie_name or ''
+        src = httpclient.show_episode_api(video_id, season_num)
         self.setcontent('episodes')
         today = datetime.today().date()
         for episode in src.get('episodes', []) or []:
@@ -591,37 +661,38 @@ class thunder(myAddon):
             ep_name = episode.get('name') or f"{title_show} {epnum}"
             icon = f"https://image.tmdb.org/t/p/w500{episode.get('still_path')}" if episode.get('still_path') else self.icon('series')
             fanart = f"https://image.tmdb.org/t/p/original{episode.get('backdrop_path')}" if episode.get('backdrop_path') else ''
-            description = episode.get('overview') or show_src.get('overview', '') or title_show
+            description = episode.get('overview') or title_show
             self.addMenuItem({
-                'name': f"{int(season)}x{int(epnum):02d} - {ep_name}",
+                'name': f"{int(season_num)}x{int(epnum):02d} - {ep_name}",
                 'action': 'provider',
-                'video_id': video_id,
+                'imdb': imdb,
                 'year': year,
-                'season': str(season),
-                'episode': str(epnum),
+                'season_num': str(season_num),
+                'episode_num': str(epnum),
                 'iconimage': icon,
                 'fanart': fanart,
                 'description': description,
-                'imdbnumber': imdb,
-                'title': title_show,
                 'video_title': f"{title_show} - {ep_name}",
-                'mediatype': 'episode'
+                'mediatype': 'episode',
+                'serie_name': title_show,
+                'genre': '',
+                'original_name': original_name
             }, folder=True)
         self.end()
 
-    def list_server_links(self, imdb, year, season, episode, name, video_title, genre, iconimage, fanart, description, is_anime='false'):
+    def list_server_links(self, imdb, mal_id, year, season_num, episode_num, name, video_title, genre, iconimage, fanart, description, is_anime='false', movie_name='', serie_name='', anime_name='', original_name=''):
         if is_anime == 'true':
-            menus_links = sources.show_content_anime(imdb, year, season, episode)
+            menus_links = sources.show_content_anime(mal_id, year, season_num, episode_num)
         else:
-            menus_links = sources.show_content(imdb, year, season, episode)
+            menus_links = sources.show_content(imdb, year, season_num, episode_num)
         if self.is_auto_play_enabled() and menus_links:
-            success = self.auto_play_preferred_language(imdb, year, season, episode, video_title, genre, iconimage, fanart, description, is_anime=is_anime)
+            success = self.auto_play_preferred_language(imdb, mal_id, year, season_num, episode_num, video_title, genre, iconimage, fanart, description, is_anime=is_anime, movie_name=movie_name, serie_name=serie_name, anime_name=anime_name, original_name=original_name)
             if success:
                 return
         if menus_links:
             self.setcontent('videos')
             for name2, page_href in menus_links:
-                self.addMenuItem({
+                link_params = {
                     'name': name2,
                     'action': 'play_resolve',
                     'video_title': video_title,
@@ -630,65 +701,76 @@ class thunder(myAddon):
                     'fanart': fanart,
                     'playable': 'false',
                     'description': description,
-                    'imdbnumber': imdb,
-                    'season': str(season) if season is not None else '',
-                    'episode': str(episode) if episode is not None else '',
+                    'season_num': str(season_num) if season_num is not None else '',
+                    'episode_num': str(episode_num) if episode_num is not None else '',
                     'genre': genre,
                     'year': str(year) if year is not None else '',
-                    'is_anime': is_anime
-                }, folder=False)
+                    'is_anime': is_anime,
+                    'original_name': original_name
+                }
+                
+                if is_anime == 'true':
+                    link_params['mal_id'] = mal_id
+                    link_params['anime_name'] = anime_name or video_title
+                elif season_num and episode_num:
+                    link_params['imdb'] = imdb
+                    link_params['serie_name'] = serie_name or video_title.split(' - ')[0] if ' - ' in video_title else video_title
+                else:
+                    link_params['imdb'] = imdb
+                    link_params['movie_name'] = movie_name or video_title
+                
+                self.addMenuItem(link_params, folder=False)
             self.end()
         else:
             self.notify_no_sources()
 
-    def resolve_links(self, url, video_title, imdb, year, season, episode, genre, iconimage, fanart, description, playable, is_anime='false'):
+    def resolve_links(self, url, video_title, imdb, mal_id, year, season_num, episode_num, genre, iconimage, fanart, description, playable, is_anime='false', movie_name='', serie_name='', anime_name='', original_name=''):
         try:
-            if season and episode:
+            if season_num and episode_num:
                 try:
-                    if imdb.startswith('tt'):
+                    if is_anime == 'true':
+                        episode_src = httpclient.open_anime_episode_api(mal_id, episode_num)
+                        description = episode_src.get('synopsis', description)
+                    else:
                         find_src = httpclient.find_tv_show_api(imdb)
                         tmdb_id = find_src.get('tv_results', [{}])[0].get('id')
                         if tmdb_id:
-                            episode_src = httpclient.open_episode_api(tmdb_id, season, episode)
+                            episode_src = httpclient.open_episode_api(tmdb_id, season_num, episode_num)
                             description = episode_src.get('overview', description)
-                    else:
-                        episode_src = httpclient.open_anime_episode_api(imdb, episode)
-                        description = episode_src.get('synopsis', description)
                 except Exception:
                     pass
-            elif not season and not episode:
+            elif not season_num and not episode_num:
                 try:
-                    if imdb.startswith('tt'):
-                        find_src = httpclient.find_tv_show_api(imdb)
+                    if is_anime == 'true':
+                        show_src = httpclient.open_anime_api(mal_id).get('data', {})
+                        description = show_src.get('synopsis', description)
+                    else:
+                        find_src = httpclient.find_movie_api(imdb)
                         tmdb_id = find_src.get('movie_results', [{}])[0].get('id')
                         if tmdb_id:
                             movie_src = httpclient.open_movie_api(tmdb_id)
                             description = movie_src.get('overview', description)
-                    else:
-                        show_src = httpclient.open_anime_api(imdb).get('data', {})
-                        description = show_src.get('synopsis', description)
                 except Exception:
                     pass
-            self.stop_if_playing()
             showtitle = video_title
             episode_title = video_title
-            if season and episode:
+            if season_num and episode_num:
                 if " - " in video_title:
                     showtitle, episode_title = video_title.split(" - ", 1)
                 else:
                     showtitle = video_title
-                    episode_title = f"{AutoTranslate.language('Episode')} {episode}"
+                    episode_title = f"{AutoTranslate.language('Episode')} {episode_num}"
             try:
-                stream, sub = sources.select_resolver(url, season, episode)
+                stream, sub = sources.select_resolver(url, season_num, episode_num)
             except Exception:
                 self.notify(AutoTranslate.language('Failed to resolve link'))
                 return
             if not stream:
                 self.notify_no_sources()
                 return
-            list_item = xbmcgui.ListItem(label=episode_title if season and episode else video_title)
+            list_item = xbmcgui.ListItem(label=episode_title if season_num and episode_num else video_title)
             list_item.setArt({'thumb': iconimage, 'icon': iconimage, 'fanart': fanart})
-            if season and episode:
+            if season_num and episode_num:
                 set_listitem_info(list_item, episode_title, description, showtitle, 'episode')
             else:
                 set_listitem_info(list_item, episode_title, description, mediatype='movie')

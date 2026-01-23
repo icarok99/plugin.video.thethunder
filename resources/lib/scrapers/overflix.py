@@ -10,6 +10,7 @@ import sys
 import re
 import difflib
 
+# Sessão requests com headers realistas
 session = requests.Session()
 USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36'
 session.headers.update({
@@ -59,6 +60,7 @@ class source:
         try:
             r = session.get(url, headers=headers, timeout=15)
             if not r or r.status_code != 200:
+                print(f"[DEBUG] Falha ao buscar título IMDb: {r.status_code if r else 'No response'}")
                 return '', '', ''
 
             soup = BeautifulSoup(r.text, 'html.parser')
@@ -99,9 +101,11 @@ class source:
                 if y:
                     year = y.group(0)
 
+            print(f"[DEBUG] Títulos encontrados: PT='{title_pt}', Original='{original_title}', Ano='{year}'")
             return title_pt or original_title, original_title or title_pt, year or ''
 
-        except:
+        except Exception as e:
+            print(f"[ERROR] Erro ao buscar título IMDb: {str(e)}")
             return '', '', ''
 
     @classmethod
@@ -109,32 +113,43 @@ class source:
         embeds = []
         soup = BeautifulSoup(html, 'html.parser')
 
+        # Extração de base e token do append (atualizado para nova estrutura)
         append_match = re.search(r'append\(\'<iframe src="([^"]+?)/e/getembed\.php', html)
         embed_base = append_match.group(1) if append_match else "https://www.overflixtv.bar"
+        print(f"[DEBUG] Base embed extraída: {embed_base}")
 
-        token = '56f50bf220c22eb9ddab'
+        token = '56f50bf220c22eb9ddab'  # Fallback hardcoded do HTML
+        # Prioriza extrair do append
         token_append_match = re.search(r'append\(\'<iframe src="[^"]+?/e/getembed\.php\?[^"]*token=([a-f0-9]{20,})[^"]*\'', html)
         if token_append_match:
             token = token_append_match.group(1)
         else:
+            # Fallback para var token
             token_match_var = re.search(r'token\s*=\s*["\']([a-f0-9]{20,})["\']', html)
             if token_match_var:
                 token = token_match_var.group(1)
             else:
+                # Qualquer &token=hex_longo
                 token_match_any = re.search(r'&token=([a-f0-9]{20,})', html)
                 if token_match_any:
                     token = token_match_any.group(1)
+        print(f"[DEBUG] Token final extraído: {token or 'Nenhum encontrado'}")
 
         player_divs = soup.find_all('div', class_='item', onclick=re.compile(r'C_Video\([^)]+\)'))
+        print(f"[DEBUG] Divs encontrados com onclick C_Video: {len(player_divs)}")
         for div in player_divs:
             onclick = div.get('onclick', '')
+            # Regex mais robusto: captura id e sv, ignora 3º param, permite aspas simples/duplas e espaços
             match = re.search(r"C_Video\s*\(\s*['\"]([^'\"]+)['\"]\s*,\s*['\"]([^'\"]+)['\"](?:\s*,\s*['\"][^'\"]*['\"])?\s*\)", onclick)
             if not match:
+                print(f"[DEBUG] Onclick não matchou regex: {onclick}")
                 continue
             player_id, server = match.groups()
-            getembed = f"{embed_base}/e/getembed.php?sv={server}&id={player_id}&token={token}"
+            getembed = f"{embed_base}/e/getembed.php?sv={server}&id={player_id}&token={token}"  # Sem &site=overflix
             server_name = server.upper()
             embeds.append((server_name, getembed, {'id': player_id, 'sv': server, 'token': token}))
+            print(f"[DEBUG] Embed extraído: Server={server_name}, ID={player_id}, URL={getembed}")
+        print(f"[DEBUG] Total embeds extraídos: {len(embeds)}")
         return embeds
 
     @classmethod
@@ -150,10 +165,14 @@ class source:
             'Referer': getembed_url
         }
         try:
+            print(f"[DEBUG] Tentando getplay.php: {play_url}")
             r2 = session.get(play_url, headers=headers, allow_redirects=True, timeout=10)
+            print(f"[DEBUG] Status getplay: {r2.status_code} | URL final: {r2.url}")
             if r2.status_code != 200:
+                print(f"[DEBUG] Conteúdo parcial (primeiros 500 chars) se erro: {r2.text[:500]}")
                 return None
             if r2.history:
+                print(f"[DEBUG] Redirecionamento detectado: {r2.url}")
                 return r2.url
             html = r2.text
             patterns = [
@@ -167,6 +186,7 @@ class source:
                 match = re.search(pattern, html, re.I)
                 if match:
                     final_video = match.group(1)
+                    print(f"[DEBUG] URL final extraída: {final_video}")
                     break
             if not final_video:
                 if sv == 'doodstream':
@@ -181,8 +201,13 @@ class source:
                     mixdrop = re.search(r'(?:window\.location\.href|var\s+videoUrl)\s*=\s*[\'"](https?://mixdrop\.[a-z0-9.-]+/[^\s"\']+)[\'"]', html, re.I)
                     if mixdrop:
                         final_video = mixdrop.group(1)
+            if final_video:
+                print(f"[DEBUG] URL de vídeo final encontrada: {final_video}")
+            else:
+                print(f"[DEBUG] Nenhuma URL de vídeo encontrada no HTML de getplay")
             return final_video
-        except:
+        except Exception as e:
+            print(f"[ERROR] Falha na requisição getplay: {str(e)}")
             return None
 
     @classmethod
@@ -200,11 +225,14 @@ class source:
                 try:
                     query = quote_plus(search_title)
                     search_url = cls.__site_url__[-1].rstrip('/') + '/pesquisar/?p=' + query
+                    print(f"[DEBUG] URL de busca: {search_url}")
                     r = session.get(search_url)
                     if not r or r.status_code != 200 or "captcha" in r.text.lower():
+                        print(f"[ERROR] Falha na busca: Status={r.status_code if r else 'No response'}, CAPTCHA?={'captcha' in r.text.lower() if r else False}")
                         return {}, None
                     soup = BeautifulSoup(r.text, 'html.parser')
                     results = soup.find_all('a', href=re.compile(r'/assistir-.*-\d{4}-[^/]+'))
+                    print(f"[DEBUG] Resultados encontrados na busca: {len(results)}")
                     movie_urls = {}
                     for item in results:
                         href = urljoin(cls.__site_url__[-1], item['href'])
@@ -234,8 +262,10 @@ class source:
                                     movie_urls['dublado'] = href
                                 elif 'legendado' in href.lower():
                                     movie_urls['legendado'] = href
+                        print(f"[DEBUG] Resultado analisado: HREF={href}, Similaridade={max_similarity}%, Ano={found_year}")
                     return movie_urls, r
-                except:
+                except Exception as e:
+                    print(f"[ERROR] Erro na busca: {str(e)}")
                     return {}, None
 
             movie_urls, r = perform_search(title)
@@ -248,6 +278,7 @@ class source:
 
             r = session.get(f"{movie_urls.get('dublado', movie_urls.get('legendado', ''))}?area=online", headers={'Referer': cls.__site_url__[-1]})
             if not r or r.status_code != 200 or "captcha" in r.text.lower():
+                print(f"[ERROR] Falha ao acessar página do filme: Status={r.status_code if r else 'No response'}")
                 return links
             embeds_final = []
             soup0 = BeautifulSoup(r.text, 'html.parser')
@@ -268,8 +299,10 @@ class source:
 
                 rlang = session.get(lang_url, headers={'Referer': cls.__site_url__[-1]})
                 if not rlang or rlang.status_code != 200 or "captcha" in rlang.text.lower():
+                    print(f"[ERROR] Falha ao acessar áudio {lang}: Status={rlang.status_code if rlang else 'No response'}")
                     continue
                 embeds = cls._extract_embeds_from_page(rlang.text)
+                print(f"[DEBUG] Total embeds extraídos para {lang}: {len(embeds)}")
                 if not embeds:
                     continue
                 for server_name, getembed_url, meta in embeds:
@@ -277,8 +310,10 @@ class source:
                     if final_video:
                         name = f"{server_name} - {lang_label}"
                         embeds_final.append((name, final_video))
+                        print(f"[DEBUG] Link final adicionado: {name} -> {final_video}")
             return embeds_final
-        except:
+        except Exception as e:
+            print(f"[ERROR] Erro geral em search_movies: {str(e)}")
             return links
 
     @classmethod
@@ -296,11 +331,14 @@ class source:
                 try:
                     query = quote_plus(search_title)
                     search_url = cls.__site_url__[-1].rstrip('/') + '/pesquisar/?p=' + query
+                    print(f"[DEBUG] URL de busca (TV): {search_url}")
                     r = session.get(search_url)
                     if not r or r.status_code != 200 or "captcha" in r.text.lower():
+                        print(f"[ERROR] Falha na busca (TV): Status={r.status_code if r else 'No response'}")
                         return {}, None
                     soup = BeautifulSoup(r.text, 'html.parser')
                     results = soup.find_all('a', href=re.compile(r'/assistir-.*-\d{4}-[^/]+'))
+                    print(f"[DEBUG] Resultados encontrados na busca (TV): {len(results)}")
                     series_urls = {}
                     for item in results:
                         href = urljoin(cls.__site_url__[-1], item['href'])
@@ -330,8 +368,10 @@ class source:
                                     series_urls['dublado'] = href
                                 elif 'legendado' in href.lower():
                                     series_urls['legendado'] = href
+                        print(f"[DEBUG] Resultado (TV): HREF={href}, Similaridade={max_similarity}%, Ano={found_year}")
                     return series_urls, r
-                except:
+                except Exception as e:
+                    print(f"[ERROR] Erro na busca (TV): {str(e)}")
                     return {}, None
 
             series_urls, r = perform_search(title)
@@ -352,6 +392,7 @@ class source:
 
                 r = session.get(series_url, headers={'Referer': cls.__site_url__[-1]})
                 if not r or r.status_code != 200 or "captcha" in r.text.lower():
+                    print(f"[ERROR] Falha ao acessar série {lang}: Status={r.status_code if r else 'No response'}")
                     continue
                 soup = BeautifulSoup(r.text, 'html.parser')
                 episode_links = soup.find_all('a', href=re.compile(r'/assistir-.*-(\d+)x(\d+)-([a-z]+)(?:-[a-z0-9]+)?-\d+/?$'))
@@ -389,6 +430,7 @@ class source:
                                     break
 
                 if not episode_url:
+                    print(f"[DEBUG] Episódio não encontrado para {lang}, temporada {season}, episódio {episode}")
                     continue
 
                 lang_label = portuguese if lang == 'dublado' else english
@@ -396,8 +438,10 @@ class source:
 
                 rlang = session.get(lang_url, headers={'Referer': cls.__site_url__[-1]})
                 if not rlang or rlang.status_code != 200 or "captcha" in rlang.text.lower():
+                    print(f"[ERROR] Falha ao acessar episódio {lang}: Status={rlang.status_code if rlang else 'No response'}")
                     continue
                 embeds = cls._extract_embeds_from_page(rlang.text)
+                print(f"[DEBUG] Total embeds extraídos para {lang} (TV): {len(embeds)}")
                 if not embeds:
                     continue
                 for server_name, getembed_url, meta in embeds:
@@ -405,8 +449,10 @@ class source:
                     if final_video:
                         name = f"{server_name} - {lang_label}"
                         embeds_final.append((name, final_video))
+                        print(f"[DEBUG] Link final (TV) adicionado: {name} -> {final_video}")
             return embeds_final
-        except:
+        except Exception as e:
+            print(f"[ERROR] Erro geral em search_tvshows: {str(e)}")
             return links
 
     __site_url__ = ['https://www.overflixtv.bar/']
@@ -429,6 +475,7 @@ class source:
         resolved, sub_from_resolver = resolver.resolverurls(stream)
         if resolved:
             streams.append((resolved, sub if sub else sub_from_resolver, USER_AGENT))
+            print(f"[DEBUG] Stream resolvido (movies): {resolved}")
         return streams
 
     @classmethod

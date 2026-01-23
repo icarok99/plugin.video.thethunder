@@ -19,7 +19,7 @@
         <setting id="source_netcine" type="bool" label="Netcine" default="true"/>
         <setting id="source_overflix" type="bool" label="Overflix" default="false"/>
         
-        <setting label="Fonte apenas para categoria animes" type="lsep" />
+        <setting label="Fontes apenas para categoria animes" type="lsep" />
         <setting id="source_animesup" type="bool" label="Animesup" default="true"/>
         <setting id="source_animesdigital" type="bool" label="Animesdigital" default="false"/>
         <setting id="source_hinatasoul" type="bool" label="Hinatasoul" default="false"/>
