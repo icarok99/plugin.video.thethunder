@@ -10,14 +10,13 @@ import sys
 import re
 import difflib
 
-# Sessão requests com headers realistas
 session = requests.Session()
 USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36'
 session.headers.update({
     'User-Agent': USER_AGENT,
     'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
     'Accept': '*/*',
-    'Referer': 'https://overflixtv.bond/',
+    'Referer': 'https://www.overflixtv.bar/',
 })
 
 try:
@@ -102,7 +101,7 @@ class source:
 
             return title_pt or original_title, original_title or title_pt, year or ''
 
-        except Exception:
+        except:
             return '', '', ''
 
     @classmethod
@@ -110,22 +109,30 @@ class source:
         embeds = []
         soup = BeautifulSoup(html, 'html.parser')
 
-        embed_base_match = re.search(r'append\(\'<iframe src="([^"]+?)/e/getembed\.php', html)
-        embed_base = embed_base_match.group(1) if embed_base_match else "https://etv-embed.cfd"
+        append_match = re.search(r'append\(\'<iframe src="([^"]+?)/e/getembed\.php', html)
+        embed_base = append_match.group(1) if append_match else "https://www.overflixtv.bar"
 
-        token = 'cfxp594cpa4to'
-        token_match = re.search(r'token\s*=\s*["\']([^"\']+)["\']', html)
-        if token_match:
-            token = token_match.group(1)
+        token = '56f50bf220c22eb9ddab'
+        token_append_match = re.search(r'append\(\'<iframe src="[^"]+?/e/getembed\.php\?[^"]*token=([a-f0-9]{20,})[^"]*\'', html)
+        if token_append_match:
+            token = token_append_match.group(1)
+        else:
+            token_match_var = re.search(r'token\s*=\s*["\']([a-f0-9]{20,})["\']', html)
+            if token_match_var:
+                token = token_match_var.group(1)
+            else:
+                token_match_any = re.search(r'&token=([a-f0-9]{20,})', html)
+                if token_match_any:
+                    token = token_match_any.group(1)
 
-        player_divs = soup.find_all('div', class_='item', onclick=re.compile(r'GetIframe\([^)]+\)'))
+        player_divs = soup.find_all('div', class_='item', onclick=re.compile(r'C_Video\([^)]+\)'))
         for div in player_divs:
             onclick = div.get('onclick', '')
-            match = re.search(r"GetIframe\('([^']+)','([^']+)'\)", onclick)
+            match = re.search(r"C_Video\s*\(\s*['\"]([^'\"]+)['\"]\s*,\s*['\"]([^'\"]+)['\"](?:\s*,\s*['\"][^'\"]*['\"])?\s*\)", onclick)
             if not match:
                 continue
             player_id, server = match.groups()
-            getembed = f"{embed_base}/e/getembed.php?sv={server}&id={player_id}&site=overflix&token={token}"
+            getembed = f"{embed_base}/e/getembed.php?sv={server}&id={player_id}&token={token}"
             server_name = server.upper()
             embeds.append((server_name, getembed, {'id': player_id, 'sv': server, 'token': token}))
         return embeds
@@ -143,7 +150,7 @@ class source:
             'Referer': getembed_url
         }
         try:
-            r2 = session.get(play_url, headers=headers, allow_redirects=True)
+            r2 = session.get(play_url, headers=headers, allow_redirects=True, timeout=10)
             if r2.status_code != 200:
                 return None
             if r2.history:
@@ -174,8 +181,6 @@ class source:
                     mixdrop = re.search(r'(?:window\.location\.href|var\s+videoUrl)\s*=\s*[\'"](https?://mixdrop\.[a-z0-9.-]+/[^\s"\']+)[\'"]', html, re.I)
                     if mixdrop:
                         final_video = mixdrop.group(1)
-            if not final_video:
-                return None
             return final_video
         except:
             return None
@@ -404,7 +409,7 @@ class source:
         except:
             return links
 
-    __site_url__ = ['https://overflixtv.bond/']
+    __site_url__ = ['https://www.overflixtv.bar/']
 
     @classmethod
     def resolve_movies(cls, url):
