@@ -290,6 +290,36 @@ class thunder(myAddon):
     def pagination_animes_airing(self, page):
         self._pagination_anime(httpclient.animes_airing_api, page, 'tvshow', 'airing_animes', self.icon('animes'))
 
+    def search_movies(self, search=None, page=1):
+        if not search:
+            search = self.input_text(AutoTranslate.language('Search movies'))
+        if search:
+            self.pagination_search_movies(search, page)
+        else:
+            self.notify_invalid_search()
+
+    def pagination_search_movies(self, search, page):
+        self._pagination_search_generic(search, page, 'movie', 'search_movies', self.icon('movies'))
+
+    def search_tv_shows(self, search=None, page=1):
+        if not search:
+            search = self.input_text(AutoTranslate.language('Search tv shows'))
+        if search:
+            self.pagination_search_tv_shows(search, page)
+        else:
+            self.notify_invalid_search()
+
+    def pagination_search_tv_shows(self, search, page):
+        self._pagination_search_generic(search, page, 'tv', 'search_tv_shows', self.icon('series'))
+
+    def search_animes(self, search=None, page=1):
+        if not search:
+            search = self.input_text(AutoTranslate.language('Search animes'))
+        if search:
+            self._pagination_search_anime(search, page)
+        else:
+            self.notify_invalid_search()
+
     def _pagination_generic(self, api_func, page, mediatype, action, default_icon):
         self.setcontent(mediatype + 's')
         total_pages, results = api_func(page)
