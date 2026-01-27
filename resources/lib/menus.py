@@ -113,7 +113,7 @@ class thunder(myAddon):
         if not menus_links:
             return None, None
         preferred_lang = self.get_preferred_language().upper()
-        TOP_HOSTS = ["STREAMTAPE", "DOODSTREAM", "MIXDROP", "FILEMOON"]
+        TOP_HOSTS = ["DOODSTREAM", "STREAMTAPE", "MIXDROP", "FILEMOON"]
 
         def get_priority_score(label, url=""):
             label_u = (label or "").upper()
@@ -162,6 +162,9 @@ class thunder(myAddon):
             if not stream:
                 self.notify_stream_unavailable()
                 return False
+
+            self.stop_if_playing()
+
             showtitle = episode_title = video_title
             if season_num and episode_num:
                 if " - " in video_title:
@@ -782,6 +785,9 @@ class thunder(myAddon):
                             description = movie_src.get('overview', description)
                 except Exception:
                     pass
+
+            self.stop_if_playing()
+
             showtitle = video_title
             episode_title = video_title
             if season_num and episode_num:
