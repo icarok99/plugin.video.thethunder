@@ -43,6 +43,57 @@ from resources.lib.resolver import Resolver
 
 class source:
 
+    domain = [
+        'https://www.overflixtv.bar/',
+    ]
+
+    @classmethod
+    def get_active_domain(cls):
+        for seed in cls.domain:
+            try:
+                r = session.get(seed, timeout=10, allow_redirects=True)
+                if r.status_code not in (200, 301, 302):
+                    continue
+
+                final_url = r.url.rstrip('/')
+                html = r.text
+
+                match = re.search(
+                    r'🔴\s*(?:<i>)?\s*(?:<b[^>]*>)?\s*(?:NOVO LINK|NOVO LINK)\s*(?:</b>)?\s*(?:</i>)?\s*»?\s*(?:<b[^>]*>)?\s*<a\s+[^>]*href=["\']([^"\']+)["\'][^>]*>',
+                    html,
+                    re.IGNORECASE | re.DOTALL | re.MULTILINE
+                )
+
+                if not match:
+                    match = re.search(
+                        r'(novo\s*link|novo\s*dom[íi]nio)\s*»?\s*<[^>]*href=["\']([^"\']+)["\']',
+                        html,
+                        re.IGNORECASE | re.DOTALL
+                    )
+
+                if not match:
+                    match = re.search(
+                        r'(novo|atual)\b[^<]{0,100}?(https?://www\.overflixtv\.[a-z]{2,6}/?)[^<]*',
+                        html,
+                        re.IGNORECASE | re.DOTALL
+                    )
+
+                if match:
+                    candidate = next((g for g in match.groups() if g and g.startswith('http')), None)
+                    if candidate:
+                        candidate = urljoin(seed, candidate).rstrip('/')
+                        try:
+                            head = session.head(candidate, timeout=6, allow_redirects=True)
+                            if head.status_code in (200, 301, 302):
+                                return candidate
+                        except:
+                            pass
+
+            except:
+                continue
+
+        return cls.domain[-1].rstrip('/')
+
     @classmethod
     def normalize_title(cls, title):
         if not title:
@@ -187,6 +238,7 @@ class source:
 
     @classmethod
     def search_movies(cls, imdb, year):
+        site_url = cls.get_active_domain()
         links = []
         title, original_title, imdb_year = cls.find_title(imdb)
         if not title and not original_title:
@@ -199,7 +251,7 @@ class source:
             def perform_search(search_title):
                 try:
                     query = quote_plus(search_title)
-                    search_url = cls.__site_url__[-1].rstrip('/') + '/pesquisar/?p=' + query
+                    search_url = site_url.rstrip('/') + '/pesquisar/?p=' + query
                     r = session.get(search_url)
                     if not r or r.status_code != 200 or "captcha" in r.text.lower():
                         return {}, None
@@ -207,7 +259,7 @@ class source:
                     results = soup.find_all('a', href=re.compile(r'/assistir-.*-\d{4}-[^/]+'))
                     movie_urls = {}
                     for item in results:
-                        href = urljoin(cls.__site_url__[-1], item['href'])
+                        href = urljoin(site_url, item['href'])
                         found_title = None
                         caption_div = item.find('div', class_='caption')
                         if caption_div:
@@ -246,7 +298,7 @@ class source:
             if not movie_urls:
                 return links
 
-            r = session.get(f"{movie_urls.get('dublado', movie_urls.get('legendado', ''))}?area=online", headers={'Referer': cls.__site_url__[-1]})
+            r = session.get(f"{movie_urls.get('dublado', movie_urls.get('legendado', ''))}?area=online", headers={'Referer': site_url})
             if not r or r.status_code != 200 or "captcha" in r.text.lower():
                 return links
             embeds_final = []
@@ -266,7 +318,7 @@ class source:
                 if not lang_url:
                     continue
 
-                rlang = session.get(lang_url, headers={'Referer': cls.__site_url__[-1]})
+                rlang = session.get(lang_url, headers={'Referer': site_url})
                 if not rlang or rlang.status_code != 200 or "captcha" in rlang.text.lower():
                     continue
                 embeds = cls._extract_embeds_from_page(rlang.text)
@@ -283,6 +335,7 @@ class source:
 
     @classmethod
     def search_tvshows(cls, imdb, year, season, episode):
+        site_url = cls.get_active_domain()
         links = []
         title, original_title, imdb_year = cls.find_title(imdb)
         if not title:
@@ -295,7 +348,7 @@ class source:
             def perform_search(search_title):
                 try:
                     query = quote_plus(search_title)
-                    search_url = cls.__site_url__[-1].rstrip('/') + '/pesquisar/?p=' + query
+                    search_url = site_url.rstrip('/') + '/pesquisar/?p=' + query
                     r = session.get(search_url)
                     if not r or r.status_code != 200 or "captcha" in r.text.lower():
                         return {}, None
@@ -303,7 +356,7 @@ class source:
                     results = soup.find_all('a', href=re.compile(r'/assistir-.*-\d{4}-[^/]+'))
                     series_urls = {}
                     for item in results:
-                        href = urljoin(cls.__site_url__[-1], item['href'])
+                        href = urljoin(site_url, item['href'])
                         found_title = None
                         caption_div = item.find('div', class_='caption')
                         if caption_div:
@@ -350,14 +403,14 @@ class source:
                 if not series_url:
                     continue
 
-                r = session.get(series_url, headers={'Referer': cls.__site_url__[-1]})
+                r = session.get(series_url, headers={'Referer': site_url})
                 if not r or r.status_code != 200 or "captcha" in r.text.lower():
                     continue
                 soup = BeautifulSoup(r.text, 'html.parser')
                 episode_links = soup.find_all('a', href=re.compile(r'/assistir-.*-(\d+)x(\d+)-([a-z]+)(?:-[a-z0-9]+)?-\d+/?$'))
                 episode_url = None
                 for item in episode_links:
-                    href = urljoin(cls.__site_url__[-1], item['href'])
+                    href = urljoin(site_url, item['href'])
                     ep_match = re.search(r'-(\d+)x(\d+)-([a-z]+)(?:-[a-z0-9]+)?-(\d+)/?$', href, re.I)
                     if ep_match:
                         found_season = int(ep_match.group(1))
@@ -371,12 +424,12 @@ class source:
 
                 if not episode_url:
                     season_url = f"{series_url.rstrip('/')}?temporada={season}"
-                    r_season = session.get(season_url, headers={'Referer': cls.__site_url__[-1]})
+                    r_season = session.get(season_url, headers={'Referer': site_url})
                     if r_season and r_season.status_code == 200 and "captcha" not in r_season.text.lower():
                         soup_season = BeautifulSoup(r_season.text, 'html.parser')
                         episode_links = soup_season.find_all('a', href=re.compile(r'/assistir-.*-(\d+)x(\d+)-([a-z]+)(?:-[a-z0-9]+)?-\d+/?$'))
                         for item in episode_links:
-                            href = urljoin(cls.__site_url__[-1], item['href'])
+                            href = urljoin(site_url, item['href'])
                             ep_match = re.search(r'-(\d+)x(\d+)-([a-z]+)(?:-[a-z0-9]+)?-(\d+)/?$', href, re.I)
                             if ep_match:
                                 found_season = int(ep_match.group(1))
@@ -394,7 +447,7 @@ class source:
                 lang_label = portuguese if lang == 'dublado' else english
                 lang_url = episode_url
 
-                rlang = session.get(lang_url, headers={'Referer': cls.__site_url__[-1]})
+                rlang = session.get(lang_url, headers={'Referer': site_url})
                 if not rlang or rlang.status_code != 200 or "captcha" in rlang.text.lower():
                     continue
                 embeds = cls._extract_embeds_from_page(rlang.text)
@@ -408,8 +461,6 @@ class source:
             return embeds_final
         except:
             return links
-
-    __site_url__ = ['https://www.overflixtv.bar/']
 
     @classmethod
     def resolve_movies(cls, url):
