@@ -222,12 +222,11 @@ class source:
     @classmethod
     def _get_movie_episode_url(cls, page_text):
         soup = BeautifulSoup(page_text, "html.parser")
-        for item in soup.select("div.ultimosAnimesHomeItem"):
-            if re.search(r'\bfilme\b', item.get_text(" ", strip=True), re.I):
-                a = item.find("a", href=True)
-                if a:
-                    movie_url = urljoin("https://www.hinatasoulbr.vip/", a["href"])
-                    return movie_url
+        items = soup.find_all('div', class_=re.compile(r'ultimos(?:Animes|Episodios)HomeItem'))
+        for item in items:
+            a = item.find('a', href=True)
+            if a and '/videos/' in a['href']:
+                return urljoin("https://www.hinatasoulbr.vip/", a["href"])
         return None
 
     @classmethod
@@ -329,16 +328,19 @@ class source:
                 
                 if meta_refresh:
                     content = meta_refresh.get('content', '')
+                    # Regex corrigida para capturar URLs longas com caracteres especiais
                     patterns = [
-                        r'url=(["\']?)([^"\'>\s]+)\1',
-                        r'url\s*=\s*(["\']?)([^"\'>\s]+)\1',
-                        r';\s*url\s*=\s*(["\']?)([^"\'>\s]+)\1'
+                        r'url\s*=\s*(.+?)(?:\s|$)',  # Captura tudo depois de url= até espaço ou fim
+                        r';\s*url\s*=\s*(.+?)(?:\s|$)',  # Com ponto-vírgula antes
+                        r'url=(.+)',  # Fallback: pega tudo depois de url=
                     ]
                     
                     for pattern in patterns:
                         match = re.search(pattern, content, re.I)
                         if match:
-                            redirect_url = match.group(2).strip()
+                            redirect_url = match.group(1).strip()
+                            # Remove aspas se existirem no início e fim
+                            redirect_url = redirect_url.strip('"').strip("'")
                             break
             
             if not redirect_url:
@@ -536,9 +538,9 @@ class source:
         return results
 
     @classmethod
-    def resolve_movies(cls, url):
+    def resolve_animes(cls, url):
         resolved, sub = Resolver().resolverurls(url)
         return [(resolved or url, sub or '', USER_AGENT)]
 
-    resolve_tvshows = resolve_movies
+    resolve_animes_movies = resolve_animes
     __site_url__ = ['https://www.hinatasoulbr.vip/']

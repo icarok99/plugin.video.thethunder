@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-from resources.lib.utils import get_current_date, get_dates, years_tvshows
+from resources.lib.utils import get_current_date
 from resources.lib.autotranslate import AutoTranslate
-from kodi_helper import requests
+from resources.lib.helper import requests
 import xbmcaddon
 import xbmcvfs
 import os
@@ -108,67 +108,64 @@ def get_json(url, ttl=None):
     except:
         return {}
 
-def get_cache_size():
-    if xbmcvfs.exists(db_file):
-        try:
-            stat = xbmcvfs.Stat(db_file)
-            return stat.st_size()
-        except:
-            pass
-    return 0
+def search_movie_api(search, page=1):
+    url = f'https://api.themoviedb.org/3/search/movie?api_key={API_KEY}&query={quote(search)}&page={page}&language={AutoTranslate.language("lang-api")}'
+    src = get_json(url)
+    return src.get('total_pages', 0), src.get('results', [])
 
-def movies_popular_api(page):
+def search_tvshow_api(search, page=1):
+    url = f'https://api.themoviedb.org/3/search/tv?api_key={API_KEY}&query={quote(search)}&page={page}&language={AutoTranslate.language("lang-api")}'
+    src = get_json(url)
+    return src.get('total_pages', 0), src.get('results', [])
+
+def search_anime_api(search, page=1):
+    url = f'https://api.jikan.moe/v4/anime?q={quote(search)}&page={page}'
+    src = get_json(url)
+    return src.get('pagination', {}).get('last_visible_page', 0), src.get('data', [])
+
+def movies_popular_api(page=1):
     url = f'https://api.themoviedb.org/3/movie/popular?api_key={API_KEY}&page={page}&language={AutoTranslate.language("lang-api")}'
     src = get_json(url)
     return src.get('total_pages', 0), src.get('results', [])
 
 def movies_api(page, t):
-    url = {
+    url_map = {
         'premiere': f'https://api.themoviedb.org/3/movie/now_playing?api_key={API_KEY}&page={page}&language={AutoTranslate.language("lang-api")}',
         'trending': f'https://api.themoviedb.org/3/trending/movie/day?api_key={API_KEY}&page={page}&language={AutoTranslate.language("lang-api")}'
-    }.get(t, '')
-    if url:
-        src = get_json(url)
-        return src.get('total_pages', 0), src.get('results', [])
-    return 0, []
+    }
+    url = url_map.get(t)
+    if not url:
+        return 0, []
+    src = get_json(url)
+    return src.get('total_pages', 0), src.get('results', [])
 
-def tv_shows_popular_api(page):
+def tv_shows_popular_api(page=1):
     url = f'https://api.themoviedb.org/3/discover/tv?api_key={API_KEY}&page={page}&language={AutoTranslate.language("lang-api")}&sort_by=popularity.desc&without_keywords=210024&include_adult=false&vote_average.lte=10&vote_count.gte=100'
     src = get_json(url)
     return src.get('total_pages', 0), src.get('results', [])
 
-def tv_shows_trending_api(page):
+def tv_shows_trending_api(page=1):
     url = f'https://api.themoviedb.org/3/discover/tv?api_key={API_KEY}&page={page}&language={AutoTranslate.language("lang-api")}&sort_by=popularity.desc&without_keywords=210024,161919&include_adult=false'
     src = get_json(url)
     return src.get('total_pages', 0), src.get('results', [])
 
-def search_movies_api(search, page):
-    url = f'https://api.themoviedb.org/3/search/multi?api_key={API_KEY}&query={quote(search)}&page={page}&language={AutoTranslate.language("lang-api")}'
-    src = get_json(url)
-    return src.get('total_pages', 0), src.get('results', [])
-
-def tv_shows_premiere_api(page):
-    year = get_current_date()
+def tv_shows_premiere_api(page=1):
+    year = get_current_date()[:4]
     url = f'https://api.themoviedb.org/3/discover/tv?api_key={API_KEY}&sort_by=popularity.desc&first_air_date_year={year}&page={page}&language={AutoTranslate.language("lang-api")}&without_keywords=210024'
     src = get_json(url)
     return src.get('total_pages', 0), src.get('results', [])
 
-def animes_popular_api(page):
+def animes_popular_api(page=1):
     url = f'https://api.jikan.moe/v4/top/anime?page={page}&filter=bypopularity'
     src = get_json(url)
     return src.get('pagination', {}).get('last_visible_page', 0), src.get('data', [])
 
-def animes_airing_api(page):
+def animes_airing_api(page=1):
     url = f'https://api.jikan.moe/v4/seasons/now?page={page}'
     src = get_json(url)
     return src.get('pagination', {}).get('last_visible_page', 0), src.get('data', [])
 
-def search_animes_api(search, page):
-    url = f'https://api.jikan.moe/v4/anime?q={quote(search)}&page={page}'
-    src = get_json(url)
-    return src.get('pagination', {}).get('last_visible_page', 0), src.get('data', [])
-
-def animes_by_season_api(year, season, page):
+def animes_by_season_api(year, season, page=1):
     url = f'https://api.jikan.moe/v4/seasons/{year}/{season}?page={page}'
     src = get_json(url)
     return src.get('pagination', {}).get('last_visible_page', 0), src.get('data', [])
@@ -185,10 +182,6 @@ def show_episode_api(id, season):
     url = f'https://api.themoviedb.org/3/tv/{id}/season/{season}?api_key={API_KEY}&append_to_response=external_ids&language={AutoTranslate.language("lang-api")}'
     return get_json(url)
 
-def open_episode_api(id, season, episode):
-    url = f'https://api.themoviedb.org/3/tv/{id}/season/{season}/episode/{episode}?api_key={API_KEY}&append_to_response=external_ids&language={AutoTranslate.language("lang-api")}'
-    return get_json(url)
-
 def open_anime_api(id):
     url = f'https://api.jikan.moe/v4/anime/{id}/full'
     return get_json(url)
@@ -202,65 +195,31 @@ def open_anime_episodes_api(id):
     all_episodes = []
     page = 1
     first_request = True
-    
+
     while True:
         url = f'https://api.jikan.moe/v4/anime/{id}/episodes?page={page}'
         src = get_json(url)
         episodes = src.get('data', [])
-        
+
         if not episodes:
             break
-            
+
         all_episodes.extend(episodes)
-        
+
         pagination = src.get('pagination', {})
-        has_next_page = pagination.get('has_next_page', False)
-        
-        if not has_next_page:
+        if not pagination.get('has_next_page', False):
             break
-            
+
         page += 1
-        
-        if first_request:
-            first_request = False
-        else:
+        if not first_request:
             time.sleep(0.4)
-    
+        first_request = False
+
     save_to_cache(cache_url, {'episodes': all_episodes})
     return all_episodes
 
-def open_anime_episode_api(id, episode):
-    url = f'https://api.jikan.moe/v4/anime/{id}/episodes/{episode}'
-    src = get_json(url)
-    return src.get('data', {})
-
 def find_tv_show_api(imdb):
     url = f'https://api.themoviedb.org/3/find/{imdb}?api_key={API_KEY}&external_source=imdb_id&language={AutoTranslate.language("lang-api")}'
-    return get_json(url)
-
-def search_tv_by_title(title, year=None):
-    try:
-        q = quote(title)
-        url = f'https://api.themoviedb.org/3/search/tv?api_key={API_KEY}&language={AutoTranslate.language("lang-api")}&query={q}'
-        if year:
-            url += f'&first_air_date_year={year}'
-        
-        return get_json(url)
-    except:
-        return {}
-
-def search_movie_by_title(title, year=None):
-    try:
-        q = quote(title)
-        url = f'https://api.themoviedb.org/3/search/movie?api_key={API_KEY}&language={AutoTranslate.language("lang-api")}&query={q}'
-        if year:
-            url += f'&year={year}'
-        return get_json(url)
-    except:
-        return {}
-
-def lastest_episodes_api(date):
-    url = f'https://api.tvmaze.com/schedule?date={date}'
     return get_json(url)
 
 def cleanhtml(raw_html):

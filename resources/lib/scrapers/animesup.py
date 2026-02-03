@@ -190,11 +190,11 @@ class source:
     @classmethod
     def _get_movie_episode_url(cls, page_text):
         soup = BeautifulSoup(page_text, "html.parser")
-        for item in soup.select("div.ultimosEpisodiosHomeItem"):
-            if re.search(r'\bfilme\b', item.get_text(" ", strip=True), re.I):
-                a = item.find("a", href=True)
-                if a:
-                    return urljoin("https://www.animesup.info/", a["href"])
+        items = soup.find_all('div', class_='ultimosEpisodiosHomeItem')
+        for item in items:
+            a = item.find('a', href=True)
+            if a and a['href'].startswith('/episodio/'):
+                return urljoin("https://www.animesup.info/", a["href"])
         return None
 
     @classmethod
@@ -353,9 +353,9 @@ class source:
         return results
 
     @classmethod
-    def resolve_movies(cls, url):
+    def resolve_animes(cls, url):
         resolved, sub = Resolver().resolverurls(url)
         return [(resolved or url, sub or '', USER_AGENT)]
 
-    resolve_tvshows = resolve_movies
+    resolve_animes_movies = resolve_animes
     __site_url__ = ['https://www.animesup.info/']
