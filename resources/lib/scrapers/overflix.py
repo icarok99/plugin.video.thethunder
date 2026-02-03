@@ -23,11 +23,9 @@ try:
     from resources.lib.autotranslate import AutoTranslate
     portuguese = AutoTranslate.language('Portuguese')
     english = AutoTranslate.language('English')
-    select_option_name = AutoTranslate.language('select_option')
 except ImportError:
     portuguese = 'DUBLADO'
     english = 'LEGENDADO'
-    select_option_name = 'SELECIONE UMA OPÇÃO ABAIXO:'
 
 try:
     from kodi_helper import myAddon
