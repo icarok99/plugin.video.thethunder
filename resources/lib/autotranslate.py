@@ -1,41 +1,75 @@
 # -*- coding: utf-8 -*-
 import os
-from kodi_helper import requests, myAddon
 import sys
 import re
 
-addonId = re.search('plugin://(.+?)/', str(sys.argv[0])).group(1)
-addon = myAddon(addonId)
-profile = addon.profile
+# Importar apenas o necessário do helper
+try:
+    from kodi_six import xbmcvfs as xbmcvfs_
+    xbmcvfs = xbmcvfs_
+except:
+    xbmcvfs = None
 
-if not addon.exists(profile):
+try:
+    from resources.lib.helper import requests
+except:
+    import requests as requests
+
+# Obter o addon ID do sys.argv
+try:
+    addonId = re.search('plugin://(.+?)/', str(sys.argv[0])).group(1)
+except:
+    addonId = 'plugin.video.thethunder'
+
+# Definir o profile diretamente
+try:
+    if xbmcvfs:
+        translate = xbmcvfs.translatePath
+        profile = translate(f'special://profile/addon_data/{addonId}')
+    else:
+        profile = ''
+except:
+    profile = ''
+
+# Criar diretório do profile se não existir
+if profile and xbmcvfs:
     try:
-        addon.mkdir(profile)
+        if not xbmcvfs.exists(profile):
+            xbmcvfs.mkdir(profile)
     except:
         pass
 
-cache_country = os.path.join(profile,'country.txt')
+cache_country = os.path.join(profile, 'country.txt') if profile else ''
 USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36'
 
 def get_country():
-    if addon.exists(cache_country):
+    if cache_country and xbmcvfs and xbmcvfs.exists(cache_country):
         country = ''
-        with open(cache_country, 'r') as f:
-            country = f.read()
-    else:
         try:
-            ip = requests.get('https://api.ipify.org/',headers={'User-Agent': USER_AGENT}).text
-            country = requests.get(
-                f'https://ipinfo.io/widget/demo/{ip}',
-                headers={'User-Agent': USER_AGENT, 'Referer': 'https://ipinfo.io/'}
-            ).json().get('data', {}).get('country', '')
-            if country:
+            with open(cache_country, 'r') as f:
+                country = f.read()
+            return country
+        except:
+            pass
+    
+    try:
+        ip = requests.get('https://api.ipify.org/', headers={'User-Agent': USER_AGENT}).text
+        country = requests.get(
+            f'https://ipinfo.io/widget/demo/{ip}',
+            headers={'User-Agent': USER_AGENT, 'Referer': 'https://ipinfo.io/'}
+        ).json().get('data', {}).get('country', '')
+        
+        if country and cache_country:
+            try:
                 with open(cache_country, 'w') as f:
                     f.write(country)
-            else:
-                country = 'unknow'
-        except:
+            except:
+                pass
+        else:
             country = 'unknow'
+    except:
+        country = 'unknow'
+    
     return country
 
 
@@ -43,7 +77,7 @@ class AutoTranslate:
     country = get_country()
 
     @classmethod
-    def language(cls,key):
+    def language(cls, key):
         # BRASIL
         if cls.country == 'BR':
             return {
@@ -70,14 +104,8 @@ class AutoTranslate:
                 'Portuguese2': 'Dublado',
                 'English': 'LEGENDADO',
                 'English2': 'Legendado',
-                'select_option': 'SELECIONE UMA OPÇÃO ABAIXO:',
-                'direct': 'Direto',
-                'select_player': 'SELECIONE UM REPRODUTOR:',
-                'load_torrent': 'carregando torrent...',
-                'select_torrent': 'SELECIONE UM TORRENT ABAIXO:',
-                'preparing': 'preparando reprodução...',
-                'ready': 'Pronto para reprodução',
-                'wait': 'Por favor aguarde...',
+                'Select a player': 'Selecione um reprodutor',
+                'Please wait...': 'Por favor aguarde...',
                 'find_source': 'Procurando nas fontes',
                 'settings': 'Configurações',
                 'donation': 'Doação',
@@ -128,14 +156,8 @@ class AutoTranslate:
                 'Portuguese2': 'Dublado',
                 'English': 'LEGENDADO',
                 'English2': 'Legendado',
-                'select_option': 'SELECIONE UMA OPÇÃO ABAIXO:',
-                'direct': 'Direto',
-                'select_player': 'SELECIONE UM REPRODUTOR:',
-                'load_torrent': 'carregando torrent...',
-                'select_torrent': 'SELECIONE UM TORRENT ABAIXO:',
-                'preparing': 'preparando reprodução...',
-                'ready': 'Pronto para reprodução',
-                'wait': 'Por favor aguarde...',
+                'Select a player': 'Selecione um reprodutor',
+                'Please wait...': 'Por favor aguarde...',
                 'find_source': 'Procurando nas fontes',
                 'settings': 'Configurações',
                 'donation': 'Doação',
@@ -186,14 +208,8 @@ class AutoTranslate:
                 'Portuguese2': 'Portuguese',
                 'English': 'ENGLISH',
                 'English2': 'English',
-                'select_option': 'SELECT AN OPTION BELOW:',
-                'direct': 'Direct',
-                'select_player': 'SELECT A PLAYER:',
-                'load_torrent': 'loading torrent...',
-                'select_torrent': 'SELECT A TORRENT BELOW:',
-                'preparing': 'preparing playback...',
-                'ready': 'Ready for playback',
-                'wait': 'Please wait...',
+                'Select a player': 'Select a player',
+                'Please wait...': 'Please wait...',
                 'find_source': 'Searching the sources',
                 'settings': 'Settings',
                 'donation': 'Donation',
