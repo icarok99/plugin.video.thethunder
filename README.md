@@ -57,15 +57,13 @@ Caso prefira instalar manualmente, será necessário instalar as dependências a
 
 Instale **todas as dependências abaixo antes** do add-on Thunder:
 
-* [**script.module.kodi-helper**](https://github.com/oneplayhd/oneplayhd.github.io/raw/refs/heads/master/script.module.kodi-helper/script.module.kodi-helper-0.0.4.zip)
-
-* [**service.subtitles.legendei**](https://github.com/oneplayhd/oneplayhd.github.io/raw/refs/heads/master/service.subtitles.legendei/service.subtitles.legendei-0.0.4.zip)
+* [**service.subtitles.legendei**](https://github.com/oneplayhd/oneplayhd.github.io/raw/refs/heads/master/service.subtitles.legendei/service.subtitles.legendei-0.0.8.zip)
 
 * [**script.module.resolveurl.fork**](https://github.com/oneplayhd/oneplayhd.github.io/raw/refs/heads/master/script.module.resolveurl.fork/script.module.resolveurl.fork-5.1.191.zip)
 
 Após instalar todas as dependências, instale o add-on:
 
-* [**plugin.video.thethunder**](https://github.com/oneplayhd/oneplayhd.github.io/raw/refs/heads/master/plugin.video.thethunder/plugin.video.thethunder-1.3.0.zip)
+* [**plugin.video.thethunder**](https://github.com/oneplayhd/oneplayhd.github.io/raw/refs/heads/master/plugin.video.thethunder/plugin.video.thethunder-1.3.4.zip)
 
 A instalação é feita pelo caminho:
 
