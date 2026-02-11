@@ -292,14 +292,21 @@ class source:
                     content = meta.get('content', '').strip()
                     
                     if 'url=' in content.lower():
-                        # Localiza 'url=' sem case-sensitivity mas preserva o case original da URL
                         pos = content.lower().find('url=')
                         after_url = content[pos + 4:].strip()
-                        redirect_url = after_url.split(';', 1)[0].strip().strip('"').strip("'")
+                        if after_url and after_url[0] in ('"', "'"):
+                            quote_char = after_url[0]
+                            after_url = after_url[1:]
+                            end_pos = after_url.find(quote_char)
+                            if end_pos != -1:
+                                redirect_url = after_url[:end_pos]
+                        else:
+                            m = re.match(r'([^\s>]+)', after_url)
+                            if m:
+                                redirect_url = m.group(1)
                     
                     if not redirect_url:
-                        # Fallback regex: captura tudo até aspas/espaço/ponto-e-vírgula
-                        m = re.search(r'(?i)url\s*=\s*["\']?(https?://[^"\'>\s;]+)', content)
+                        m = re.search(r'(?i)url\s*=\s*["\']?(https?://[^"\'>\s]+)', content)
                         if m:
                             redirect_url = m.group(1).strip()
                 
