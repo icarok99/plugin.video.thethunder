@@ -175,7 +175,7 @@ class source:
         return re.sub(r'\s+', ' ', base).strip()
 
     @classmethod
-    def search_animes(cls, mal_id, episode=None):
+    def search_animes(cls, mal_id, episode):
         is_movie = episode is None
         if not is_movie:
             try:
