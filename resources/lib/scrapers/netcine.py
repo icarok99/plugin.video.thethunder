@@ -19,20 +19,21 @@ session.verify = False
 session.headers.update({
     "User-Agent": USER_AGENT,
     "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
-    "Referer": "https://netcinept.lat/"
+    "Referer": "https://netcinett.lat/"
 })
 
-def _get_host():
+def get_last_base(original_url):
     try:
-        r = session.get("https://raw.githack.com/zoreu/dns_ntc/main/dns.txt", timeout=8)
-        h = r.text.strip()
-        if h.startswith("http"):
-            return h.rstrip("/") + "/"
+        r = session.get(original_url, allow_redirects=True)
+        final_url = r.url.rstrip('/')
+        if "netcine" in final_url.lower():
+            return final_url + "/"
     except:
         pass
-    return "https://netcinept.lat/"
+    return original_url.rstrip('/') + "/"
 
-HOST = _get_host()
+ORIGINAL_BASE = "https://netcinett.lat"
+HOST = get_last_base(ORIGINAL_BASE)
 
 def clean_title(title):
     return re.sub(r'[:\-–]', ' ', title).strip()
@@ -44,7 +45,7 @@ class source:
     def find_title(cls, imdb):
         url = "https://m.imdb.com/pt/title/" + imdb + "/"
         try:
-            r = session.get(url, timeout=20)
+            r = session.get(url)
             if r.status_code != 200:
                 return '', '', ''
             soup = BeautifulSoup(r.text, 'html.parser')
@@ -85,7 +86,7 @@ class source:
             clean_search = clean_title(search_title)
             search_url = HOST + "?s=" + quote_plus(clean_search)
             try:
-                r = session.get(search_url, timeout=20)
+                r = session.get(search_url)
                 if r.status_code != 200:
                     continue
                 soup = BeautifulSoup(r.text, 'html.parser')
@@ -126,7 +127,7 @@ class source:
             clean_search = clean_title(search_title)
             search_url = HOST + "?s=" + quote_plus(clean_search)
             try:
-                r = session.get(search_url, timeout=20)
+                r = session.get(search_url)
                 if r.status_code != 200:
                     continue
                 soup = BeautifulSoup(r.text, 'html.parser')
@@ -150,7 +151,7 @@ class source:
                 if not series_href:
                     continue
 
-                r_series = session.get(series_href, timeout=20)
+                r_series = session.get(series_href)
                 soup_series = BeautifulSoup(r_series.text, 'html.parser')
 
                 episode_links = soup_series.select('a[href*="/episode/"]')
@@ -185,7 +186,7 @@ class source:
     def _get_players(cls, page_url):
         links = []
         try:
-            r = session.get(page_url, timeout=20)
+            r = session.get(page_url)
             soup = BeautifulSoup(r.text, 'html.parser')
             tabs = soup.select("#player-container .player-menu li a")
             for tab in tabs:
