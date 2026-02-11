@@ -29,18 +29,20 @@ class source:
     def _normalize(cls, text):
         if not text:
             return ""
-        return unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
+        normalized = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
+        return normalized
 
     @classmethod
     def _normalize_movie_hyphen(cls, title):
         if not title:
             return title
-        return re.sub(
+        normalized = re.sub(
             r'\s*[\u002D\u2010\u2011\u2012\u2013\u2014\u2015-]\s*(the movie\b)',
             r' the movie',
             title,
             flags=re.I
         )
+        return normalized
 
     @classmethod
     def _adjust_base_title(cls, title):
@@ -49,7 +51,8 @@ class source:
         words = title.split()
         if len(title) < cls.QUOTE_MIN_CHARS and len(words) < cls.QUOTE_MIN_WORDS:
             return title
-        return title.split('"', 1)[0].strip()
+        adjusted = title.split('"', 1)[0].strip()
+        return adjusted
 
     @classmethod
     def _clean_title(cls, title):
@@ -63,22 +66,26 @@ class source:
         t = re.sub(r'[()\[\]]', '', t)
         t = re.sub(r'\b(\d+)(?:st|nd|rd|th|ª|º)\b', r'\1', t)
         t = re.sub(r'\s+', ' ', t)
-        return t.strip()
+        cleaned = t.strip()
+        return cleaned
 
     @classmethod
     def _strip_dublado(cls, text):
-        return re.sub(r'\bdublado\b', '', text).strip()
+        stripped = re.sub(r'\bdublado\b', '', text).strip()
+        return stripped
 
     @classmethod
     def _has_extra_words(cls, base_clean, cand_clean):
-        return cls._strip_dublado(cand_clean) != base_clean
+        has_extra = cls._strip_dublado(cand_clean) != base_clean
+        return has_extra
 
     @classmethod
     def _extract_year(cls, text):
         if not text:
             return None
         m = re.search(r'\b(19|20)\d{2}\b', text)
-        return int(m.group()) if m else None
+        year = int(m.group()) if m else None
+        return year
 
     @classmethod
     def _extract_season_number(cls, text):
@@ -91,13 +98,15 @@ class source:
             r'\b(\d+)\s*(?:ª|º|st|nd|rd|th)?\s*(?:temporada|season)\b',
             r'\b(\d+)\b',
         ]
+        season = None
         for pattern in patterns:
             m = re.search(pattern, text_lower)
             if m:
                 try:
                     num = int(m.group(1))
                     if 1 <= num <= 20:
-                        return num
+                        season = num
+                        return season
                 except:
                     pass
         return None
@@ -160,28 +169,31 @@ class source:
         base = series_url.rstrip('/')
         if page_num <= 1:
             return base
-        return f"{base}/page/{page_num}"
+        page_url = f"{base}/page/{page_num}"
+        return page_url
 
     @classmethod
     def _get_episode_page_url(cls, series_url, episode_num):
         page_num = 1
         while True:
             page_url = cls._build_page_url(series_url, page_num)
-            r = session.get(page_url, timeout=15)
+            r = session.get(page_url)
             if not r.ok:
                 break
             episodes = cls._extract_episode_links_from_page(r.text)
             if not episodes:
                 break
             if episode_num in episodes:
-                return urljoin("https://www.hinatasoulbr.vip/", episodes[episode_num])
+                ep_url = urljoin("https://www.hinatasoulbr.vip/", episodes[episode_num])
+                return ep_url
             page_num += 1
-        r = session.get(series_url, timeout=15)
+        r = session.get(series_url)
         if r.ok:
             episodes = cls._extract_episode_links_from_page(r.text)
             if episodes:
                 fallback_ep = min(episodes.keys())
-                return urljoin("https://www.hinatasoulbr.vip/", episodes[fallback_ep])
+                fallback_url = urljoin("https://www.hinatasoulbr.vip/", episodes[fallback_ep])
+                return fallback_url
         return None
 
     @classmethod
@@ -266,7 +278,7 @@ class source:
         step1_url = f"https://ondeviajar.online/data5.php?token={token}"
         
         try:
-            response = session.get(step1_url, allow_redirects=False, timeout=15)
+            response = session.get(step1_url, allow_redirects=False)
             redirect_url = None
             
             if response.status_code in (301, 302, 303, 307, 308):
@@ -275,28 +287,31 @@ class source:
             if not redirect_url and len(response.text.strip()) > 0:
                 soup = BeautifulSoup(response.text, 'html.parser')
                 meta = soup.find('meta', attrs={'http-equiv': re.compile(r'refresh', re.I)})
+                
                 if meta:
                     content = meta.get('content', '').strip()
+                    
                     if 'url=' in content.lower():
                         after_url = content.lower().split('url=', 1)[1].strip()
                         redirect_url = after_url.split(';', 1)[0].strip().strip('"').strip("'")
+                    
                     if not redirect_url:
                         m = re.search(r'(?i)url\s*[=]\s*["\']?([^"\'>;\s]+)', content)
                         if m:
                             redirect_url = m.group(1).strip()
-            
+                
             if not redirect_url:
                 return None
             
             if not redirect_url.startswith(('http://', 'https://')):
                 redirect_url = urljoin(step1_url, redirect_url)
             
-            carol_response = session.get(redirect_url, allow_redirects=False, timeout=15)
+            carol_response = session.get(redirect_url, allow_redirects=False)
             
             if carol_response.status_code in (301, 302, 303, 307, 308):
                 final_url = carol_response.headers.get('Location')
                 if final_url:
-                    carol_response = session.get(final_url, allow_redirects=False, timeout=15)
+                    carol_response = session.get(final_url, allow_redirects=False)
             
             if len(carol_response.text) > 80:
                 soup = BeautifulSoup(carol_response.text, 'html.parser')
@@ -315,6 +330,7 @@ class source:
                             return unquote(m.group(1))
                 
                 iframes = soup.find_all('iframe', src=True)
+                
                 for iframe in iframes:
                     src = iframe['src']
                     if any(x in src.lower() for x in ['.mp4', 'url=', 'video', 'player']):
@@ -328,7 +344,7 @@ class source:
             
             return None
             
-        except:
+        except Exception as e:
             return None
 
     @classmethod
@@ -338,8 +354,9 @@ class source:
             return "HINATASOUL - SD", None
         mp4_url = cls._get_direct_mp4_from_token_302(token)
         if mp4_url:
-            return "HINATASOUL", mp4_url
-        return "HINATASOUL - SD", None
+            label = f"HINATASOUL -"
+            return label, mp4_url
+        return "HINATASOUL -", None
 
     @classmethod
     def search_animes(cls, mal_id, episode):
@@ -349,7 +366,7 @@ class source:
                 episode = int(episode)
             except:
                 return []
-        r = session.get(f"https://api.jikan.moe/v4/anime/{mal_id}/full", timeout=10)
+        r = session.get(f"https://api.jikan.moe/v4/anime/{mal_id}/full")
         if not r.ok:
             return []
         data = r.json().get('data', {})
@@ -360,7 +377,7 @@ class source:
         base_titles = [t for t in [title_english, title_default] + title_synonyms if t]
         search_title = title_english or title_default
         search_url = f"https://www.hinatasoulbr.vip/busca?busca={quote_plus(search_title)}"
-        r = session.get(search_url, timeout=15)
+        r = session.get(search_url)
         if not r.ok:
             return []
         soup = BeautifulSoup(r.text, "html.parser")
@@ -420,7 +437,7 @@ class source:
             if c["url"] in seen:
                 continue
             seen.add(c["url"])
-            r_page = session.get(c["url"], timeout=15)
+            r_page = session.get(c["url"])
             if not r_page.ok:
                 continue
             ep_url = (
@@ -430,7 +447,7 @@ class source:
             )
             if not ep_url:
                 continue
-            r_ep = session.get(ep_url, timeout=15)
+            r_ep = session.get(ep_url)
             if not r_ep.ok:
                 continue
             available = cls._get_available_qualities(r_ep.text)
@@ -438,14 +455,15 @@ class source:
             if not url:
                 continue
             prefix = "DUBLADO" if "dublado" in c["title"].lower() else "LEGENDADO"
-            final_label = f"{label} - {prefix}"
+            final_label = f"{label} {prefix}"
             results.append((final_label, url))
         return results
 
     @classmethod
     def resolve_animes(cls, url):
         resolved, sub = Resolver().resolverurls(url)
-        return [(resolved or url, sub or '', USER_AGENT)]
+        result = resolved or url
+        return [(result, sub or '', USER_AGENT)]
 
     resolve_animes_movies = resolve_animes
     __site_url__ = ['https://www.hinatasoulbr.vip/']
