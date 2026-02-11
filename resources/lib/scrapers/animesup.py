@@ -237,7 +237,7 @@ class source:
         return "ANIMESUP -", None
 
     @classmethod
-    def search_animes(cls, mal_id, season=None, episode=None):
+    def search_animes(cls, mal_id, episode):
         is_movie = episode is None
 
         if not is_movie:
