@@ -344,7 +344,7 @@ class source:
             
             return None
             
-        except Exception as e:
+        except:
             return None
 
     @classmethod
