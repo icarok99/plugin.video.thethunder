@@ -150,7 +150,7 @@ class source:
             return None
 
     @classmethod
-    def search_movies(cls, imdb, year=None):
+    def search_movies(cls, imdb, year):
         pt, original_title, imdb_year = cls.find_title(imdb)
         if not pt:
             return []
