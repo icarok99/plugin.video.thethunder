@@ -160,7 +160,7 @@
             <aligny>center</aligny>
             <font>font13_title</font>
             <textcolor>FFFFFFFF</textcolor>
-            <label>Procurando nas fontes</label>
+            <label>$ADDON[plugin.video.thethunder 30302]</label>
             <visible>String.IsEqual(Window(10000).Property(loading.phase),1)</visible>
         </control>
 
