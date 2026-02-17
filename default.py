@@ -92,7 +92,7 @@ def is_auto_play_enabled():
         return False
 
 
-def build_tvshow_playlist(tmdb_id, season_num, current_episode_num, serie_name, original_name, all_episodes, imdb_id=''):
+def build_tvshow_playlist(tmdb_id, season_num, current_episode_num, serie_name, original_name, all_episodes, imdb_id):
     if not all_episodes or not isinstance(all_episodes, list):
         return
     
@@ -206,7 +206,7 @@ def build_anime_playlist(mal_id, current_episode_num, serie_name, original_name,
             
             playlist.add(url=plugin_url, listitem=list_item)
 
-def try_resolve_with_fallback(menus_links, season=None, episode=None, is_anime=False):
+def try_resolve_with_fallback(menus_links, season, episode, is_anime=False):
     if not menus_links:
         return None, None
     preferred_lang = get_preferred_language().upper()
@@ -257,7 +257,7 @@ def try_resolve_with_fallback(menus_links, season=None, episode=None, is_anime=F
             continue
     return None, None
 
-def auto_play_preferred_language(mal_id, imdb, year, season, episode, video_title, iconimage, fanart, description, is_anime='false', tmdb_id=None, serie_name='', original_name=''):
+def auto_play_preferred_language(mal_id, imdb, year, season, episode, video_title, iconimage, fanart, description, is_anime='false', tmdb_id, serie_name, original_name):
     try:
         if is_anime == 'true':
             if episode is None:
@@ -267,7 +267,7 @@ def auto_play_preferred_language(mal_id, imdb, year, season, episode, video_titl
         elif season is None and episode is None:
             menus_links = sources.movie_content(imdb, year)
         else:
-            menus_links = sources.show_content(imdb, year, season, episode)
+            menus_links = sources.show_content(imdb, season, episode)
         
         if not menus_links:
             notify(getString(30401))
@@ -1151,7 +1151,7 @@ def play_resolve_tvshows(param):
         stream = None
         sub = None
         
-        menus_links = sources.show_content(imdb, None, season_num, episode_num)
+        menus_links = sources.show_content(imdb, season_num, episode_num)
         loading_manager.set_sources_found(len(menus_links))
         
         if not menus_links:
