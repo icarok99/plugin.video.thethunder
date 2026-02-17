@@ -212,7 +212,7 @@ class source:
         return []
 
     @classmethod
-    def search_tvshows(cls, imdb, year, season, episode):
+    def search_tvshows(cls, imdb, season, episode):
         try:
             season = int(season)
             episode = int(episode)
