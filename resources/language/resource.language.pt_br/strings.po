@@ -118,6 +118,10 @@ msgctxt "#30300"
 msgid "Select a player"
 msgstr "Selecione um player"
 
+msgctxt "#30301"
+msgid "Press OK to select or Back to cancel"
+msgstr "Pressione OK para selecionar ou Voltar para cancelar"
+
 msgctxt "#30302"
 msgid "Searching the sources"
 msgstr "Procurando nas fontes"
