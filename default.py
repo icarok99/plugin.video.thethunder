@@ -137,12 +137,23 @@ def build_tvshow_playlist(tmdb_id, season_num, current_episode_num, serie_name, 
             
             if KODI_MAJOR >= 20:
                 info_tag = list_item.getVideoInfoTag()
-                info_tag.setTitle(title)
+                info_tag.setTitle(name if name else title)
+                info_tag.setTvShowTitle(serie_name)
                 info_tag.setPlot(description)
+                info_tag.setMediaType('episode')
+                info_tag.setSeason(season_num)
+                info_tag.setEpisode(ep_num)
+                if original_name:
+                    info_tag.setOriginalTitle(original_name)
             else:
                 list_item.setInfo('video', {
-                    'title': title,
+                    'title': name if name else title,
+                    'tvshowtitle': serie_name,
                     'plot': description,
+                    'mediatype': 'episode',
+                    'season': season_num,
+                    'episode': ep_num,
+                    'originaltitle': original_name,
                 })
             
             playlist.add(url=plugin_url, listitem=list_item)
@@ -191,16 +202,22 @@ def build_anime_playlist(mal_id, current_episode_num, serie_name, original_name,
             
             if KODI_MAJOR >= 20:
                 info_tag = list_item.getVideoInfoTag()
-                info_tag.setTitle(title)
+                info_tag.setTitle(name if name else f'Ep {ep_num}')
+                info_tag.setTvShowTitle(serie_name)
                 info_tag.setPlot(description)
                 info_tag.setMediaType('episode')
+                info_tag.setSeason(1)
+                info_tag.setEpisode(ep_num)
                 if original_name:
                     info_tag.setOriginalTitle(original_name)
             else:
                 list_item.setInfo('video', {
-                    'title': title,
+                    'title': name if name else f'Ep {ep_num}',
+                    'tvshowtitle': serie_name,
                     'plot': description,
                     'mediatype': 'episode',
+                    'season': 1,
+                    'episode': ep_num,
                     'originaltitle': original_name
                 })
             
@@ -1067,6 +1084,10 @@ def anime_episodes(param):
                 'serie_name': anime_name,
                 'episode_title': ep_name,
                 'is_anime': is_anime,
+                'episode': int(epnum),
+                'season': 1,
+                'tvshowtitle': anime_name,
+                'mediatype': 'episode',
                 'playable': 'true'
             }, destiny='/play_resolve_animes', folder=False)
         end()
@@ -1125,6 +1146,10 @@ def open_episodes(param):
                 'serie_name': serie_name,
                 'original_name': original_name,
                 'episode_title': ep_name,
+                'season': int(season_num),
+                'episode': int(episode_num),
+                'tvshowtitle': serie_name,
+                'mediatype': 'episode',
                 'playable': 'true'
             }, destiny='/play_resolve_tvshows', folder=False)
         end()
@@ -1234,6 +1259,8 @@ def play_resolve_tvshows(param):
             info_tag.setTvShowTitle(showtitle)
             info_tag.setPlot(description)
             info_tag.setMediaType('episode')
+            info_tag.setSeason(season_num)
+            info_tag.setEpisode(episode_num)
             if original_name:
                 info_tag.setOriginalTitle(original_name)
             if tmdb_id:
@@ -1243,7 +1270,9 @@ def play_resolve_tvshows(param):
                 'title': episode_title,
                 'tvshowtitle': showtitle,
                 'plot': description,
-                'mediatype': 'episode'
+                'mediatype': 'episode',
+                'season': season_num,
+                'episode': episode_num,
             }
             if imdb:
                 info_dict['imdbnumber'] = imdb
@@ -1363,9 +1392,7 @@ def play_resolve_animes(param):
         
         stop_player()
         
-        if episode_title:
-            episode_title = f"Ep {episode_num} {episode_title}"
-        else:
+        if not episode_title:
             episode_title = f"Ep {episode_num}"
         
         play_item = xbmcgui.ListItem(path=stream)
@@ -1378,6 +1405,8 @@ def play_resolve_animes(param):
             info_tag.setTvShowTitle(serie_name)
             info_tag.setPlot(description)
             info_tag.setMediaType('episode')
+            info_tag.setSeason(1)
+            info_tag.setEpisode(episode_num)
             if original_name:
                 info_tag.setOriginalTitle(original_name)
         else:
@@ -1385,7 +1414,9 @@ def play_resolve_animes(param):
                 'title': episode_title,
                 'tvshowtitle': serie_name,
                 'plot': description,
-                'mediatype': 'episode'
+                'mediatype': 'episode',
+                'season': 1,
+                'episode': episode_num,
             }
             if original_name:
                 info_dict['originaltitle'] = original_name
