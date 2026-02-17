@@ -319,7 +319,7 @@ class source:
             return links
 
     @classmethod
-    def search_tvshows(cls, imdb, year, season, episode):
+    def search_tvshows(cls, imdb, season, episode):
         links = []
         title, original_title, imdb_year = cls.find_title(imdb)
         if not title and not original_title:
