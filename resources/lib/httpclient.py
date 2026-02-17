@@ -1,15 +1,17 @@
-from resources.lib.utils import get_current_date
-from resources.lib.helper import requests
-import xbmcaddon
-import xbmcvfs
+# -*- coding: utf-8 -*-
+
 import os
+import json
 import time
 import hashlib
-import json
-from urllib.parse import quote
 import sqlite3
-from contextlib import contextmanager
+import xbmcvfs
+import xbmcaddon
 from datetime import datetime
+from urllib.parse import quote
+from contextlib import contextmanager
+from resources.lib.helper import requests
+from resources.lib.utils import get_current_date
 
 addon = xbmcaddon.Addon()
 
