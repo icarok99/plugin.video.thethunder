@@ -69,15 +69,15 @@ msgstr "Resolvendo o link"
 
 msgctxt "#30014"
 msgid "Search movies"
-msgstr "Buscar filmes"
+msgstr "Pesquisar filme"
 
 msgctxt "#30015"
 msgid "Search tv shows"
-msgstr "Buscar séries"
+msgstr "Pesquisar série"
 
 msgctxt "#30016"
 msgid "Search animes"
-msgstr "Buscar animes"
+msgstr "Pesquisar anime"
 
 msgctxt "#30017"
 msgid "Settings"
@@ -308,11 +308,11 @@ msgstr "Hinatasoul"
 # Up Next Category (32100-32199)
 msgctxt "#32100"
 msgid "Up Next"
-msgstr "Próximo Episódio"
+msgstr ""
 
 msgctxt "#32101"
 msgid "Enable Up Next"
-msgstr "Ativar Próximo Episódio"
+msgstr "Ativar Up Next"
 
 msgctxt "#32102"
 msgid "Show notification when remaining (seconds)"
