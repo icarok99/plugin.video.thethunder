@@ -121,7 +121,7 @@ class source:
         return []
 
     @classmethod
-    def search_tvshows(cls, imdb, year, season, episode):
+    def search_tvshows(cls, imdb, season, episode):
         title_pt, original_title, imdb_year = cls.find_title(imdb)
         if not imdb_year:
             return []
