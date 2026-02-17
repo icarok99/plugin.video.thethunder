@@ -39,7 +39,7 @@
             <aligny>center</aligny>
             <font>font13_title</font>
             <textcolor>FFFFFFFF</textcolor>
-            <label>Selecione o player</label>
+            <label>$ADDON[plugin.video.thethunder 30300]</label>
             <animation effect="fade" start="0" end="100" time="350" delay="100" tween="sine" easing="out">WindowOpen</animation>
             <animation effect="slide" start="0" end="0" time="350" delay="100" tween="back" easing="out">WindowOpen</animation>
             <animation effect="fade" start="100" end="0" time="200" tween="sine" easing="in">WindowClose</animation>
@@ -118,7 +118,7 @@
             <aligny>center</aligny>
             <font>font12</font>
             <textcolor>90FFFFFF</textcolor>
-            <label>Pressione OK para selecionar ou Voltar para cancelar</label>
+            <label>$ADDON[plugin.video.thethunder 30301]</label>
             <animation effect="fade" start="0" end="100" time="350" delay="250" tween="sine" easing="out">WindowOpen</animation>
             <animation effect="fade" start="100" end="0" time="200" tween="sine" easing="in">WindowClose</animation>
         </control>
