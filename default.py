@@ -257,7 +257,7 @@ def try_resolve_with_fallback(menus_links, season, episode, is_anime=False):
             continue
     return None, None
 
-def auto_play_preferred_language(mal_id, imdb, year, season, episode, video_title, iconimage, fanart, description, is_anime='false', tmdb_id, serie_name, original_name):
+def auto_play_preferred_language(mal_id, tmdb_id, imdb, year, season, episode, video_title, iconimage, fanart, description, is_anime='false'):
     try:
         if is_anime == 'true':
             if episode is None:
