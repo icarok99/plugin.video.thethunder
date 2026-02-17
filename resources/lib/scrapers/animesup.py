@@ -8,6 +8,19 @@ from urllib.parse import quote_plus, urljoin
 from bs4 import BeautifulSoup
 import requests
 
+from resources.lib.resolver import Resolver
+
+# Importar strings de tradução do Kodi
+try:
+    import xbmcaddon
+    addon = xbmcaddon.Addon()
+    DUBBED = addon.getLocalizedString(30200)  # "DUBBED"
+    SUBTITLED = addon.getLocalizedString(30202)  # "SUBTITLED"
+except:
+    # Fallback se não estiver no ambiente Kodi
+    DUBBED = 'DUBLADO'
+    SUBTITLED = 'LEGENDADO'
+
 session = requests.Session()
 USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36'
 session.headers.update({
@@ -16,8 +29,6 @@ session.headers.update({
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
     'Referer': 'https://www.animesup.info/',
 })
-
-from resources.lib.resolver import Resolver
 
 
 class source:
@@ -61,7 +72,7 @@ class source:
         t = cls._normalize(title.lower())
         t = re.sub(r'\bassistir\s+online\b', '', t)
         t = re.sub(r'\bonline\b', '', t)
-        t = re.sub(r'[\"“”\'`]', '', t)
+        t = re.sub(r'[\"""\'`]', '', t)
         t = re.sub(r'[-_:]', ' ', t)
         t = re.sub(r'[()\[\]]', '', t)
         t = re.sub(r'\b(\d+)(?:st|nd|rd|th|ª|º)\b', r'\1', t)
@@ -346,7 +357,7 @@ class source:
             if not url:
                 continue
 
-            prefix = "DUBLADO" if "dublado" in c["title"].lower() else "LEGENDADO"
+            prefix = DUBBED if "dublado" in c["title"].lower() else SUBTITLED
             final_label = f"{label} {prefix}"
             results.append((final_label, url))
 

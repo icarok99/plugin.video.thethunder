@@ -11,6 +11,19 @@ from urllib.parse import quote_plus, urljoin
 from bs4 import BeautifulSoup
 import requests
 
+from resources.lib.resolver import Resolver
+
+# Importar strings de tradução do Kodi
+try:
+    import xbmcaddon
+    addon = xbmcaddon.Addon()
+    DUBBED = addon.getLocalizedString(30200)  # "DUBBED"
+    SUBTITLED = addon.getLocalizedString(30202)  # "SUBTITLED"
+except:
+    # Fallback se não estiver no ambiente Kodi
+    DUBBED = 'DUBLADO'
+    SUBTITLED = 'LEGENDADO'
+
 # Sessão requests com headers realistas
 session = requests.Session()
 USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36'
@@ -20,26 +33,6 @@ session.headers.update({
     'Accept': '*/*',
     'Referer': 'https://goflixy.lol/',
 })
-
-try:
-    from resources.lib.autotranslate import AutoTranslate
-    portuguese = AutoTranslate.language('Portuguese')
-    english = AutoTranslate.language('English')
-except ImportError:
-    portuguese = 'DUBLADO'
-    english = 'LEGENDADO'
-
-try:
-    from kodi_helper import myAddon
-    addonId = re.search('plugin://(.+?)/', str(sys.argv[0])).group(1)
-    addon = myAddon(addonId)
-    select = addon.select
-except ImportError:
-    local_path = os.path.dirname(os.path.realpath(__file__))
-    lib_path = local_path.replace('scrapers', '')
-    sys.path.append(lib_path)
-
-from resources.lib.resolver import Resolver
 
 
 class source:
@@ -214,9 +207,9 @@ class source:
             leg = cls._resolve_fembed(ID, "LEG")
 
             if dub:
-                out.append(("FILEMOON - DUBLADO", dub))
+                out.append((f"FILEMOON - {DUBBED}", dub))
             if leg:
-                out.append(("FILEMOON - LEGENDADO", leg))
+                out.append((f"FILEMOON - {SUBTITLED}", leg))
 
             return out
         return []
@@ -293,9 +286,9 @@ class source:
                 leg = cls._resolve_fembed(ID, "LEG", cvalue)
 
                 if dub:
-                    out.append(("FILEMOON - DUBLADO", dub))
+                    out.append((f"FILEMOON - {DUBBED}", dub))
                 if leg:
-                    out.append(("FILEMOON - LEGENDADO", leg))
+                    out.append((f"FILEMOON - {SUBTITLED}", leg))
 
                 return out
         return []

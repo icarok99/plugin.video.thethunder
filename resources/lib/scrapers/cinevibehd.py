@@ -10,6 +10,19 @@ from urllib.parse import quote_plus
 import requests
 from bs4 import BeautifulSoup
 
+from resources.lib.resolver import Resolver
+
+# Importar strings de tradução do Kodi
+try:
+    import xbmcaddon
+    addon = xbmcaddon.Addon()
+    DUBBED = addon.getLocalizedString(30200)  # "DUBBED"
+    SUBTITLED = addon.getLocalizedString(30202)  # "SUBTITLED"
+except:
+    # Fallback se não estiver no ambiente Kodi
+    DUBBED = 'DUBLADO'
+    SUBTITLED = 'LEGENDADO'
+
 # Sessão requests com headers realistas
 session = requests.Session()
 USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36'
@@ -19,26 +32,6 @@ session.headers.update({
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
     'Referer': 'https://cinevibehd.com/',
 })
-
-try:
-    from resources.lib.autotranslate import AutoTranslate
-    portuguese = AutoTranslate.language('Portuguese')
-    english = AutoTranslate.language('English')
-except ImportError:
-    portuguese = 'DUBLADO'
-    english = 'LEGENDADO'
-
-try:
-    from kodi_helper import myAddon
-    addonId = re.search('plugin://(.+?)/', str(sys.argv[0])).group(1)
-    addon = myAddon(addonId)
-    select = addon.select
-except ImportError:
-    local_path = os.path.dirname(os.path.realpath(__file__))
-    lib_path = local_path.replace('scrapers', '')
-    sys.path.append(lib_path)
-
-from resources.lib.resolver import Resolver
 
 
 class source:
@@ -155,7 +148,7 @@ class source:
                 title_match = re.search(rf'data-nume=[\"\']{nume}[\"\'][^>]*>.*?<span[^>]*class=["\']title["\'][^>]*>([^<]+)</span>', html or '', re.I | re.S)
                 raw_title = title_match.group(1).strip() if title_match else ""
                 is_dub = bool(re.search(r'dub|dublad|dublado', raw_title, re.I))
-                lang = portuguese if is_dub else english
+                lang = DUBBED if is_dub else SUBTITLED
 
                 count = sum(1 for existing_name, _ in players if lang in existing_name)
                 number = count + 1

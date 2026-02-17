@@ -26,6 +26,15 @@ except ImportError:
 
 from resources.lib.resolver import Resolver
 
+# Importar strings de tradução do Kodi
+try:
+    import xbmcaddon
+    addon_str = xbmcaddon.Addon()
+    DUBBED = addon_str.getLocalizedString(30200)  # "DUBBED"
+except:
+    # Fallback se não estiver no ambiente Kodi
+    DUBBED = 'DUBLADO'
+
 USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36'
 
 class DNSResolver:
@@ -314,9 +323,9 @@ class source:
                     if player_url:
                         vid_url = cls._extract_players_from_page(player_url)
                         if vid_url:
-                            links.append((f"{WEBSITE} - DUBLADO", vid_url))
+                            links.append((f"{WEBSITE} - {DUBBED}", vid_url))
                         else:
-                            links.append((f"{WEBSITE} - DUBLADO", player_url))
+                            links.append((f"{WEBSITE} - {DUBBED}", player_url))
             return links
         except Exception:
             return links
@@ -379,7 +388,7 @@ class source:
                             if json_data:
                                 player_url = cls._construct_player_url(json_data)
                                 if player_url:
-                                    links.append((f"{WEBSITE} - DUBLADO", player_url))
+                                    links.append((f"{WEBSITE} - {DUBBED}", player_url))
                             break
             else:
                 html = r_season.text
@@ -390,7 +399,7 @@ class source:
                     if json_data:
                         player_url = cls._construct_player_url(json_data)
                         if player_url:
-                            links.append((f"{WEBSITE} - DUBLADO", player_url))
+                            links.append((f"{WEBSITE} - {DUBBED}", player_url))
             return links
         except Exception:
             return links

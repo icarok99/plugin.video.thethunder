@@ -11,6 +11,17 @@ import requests
 
 from resources.lib.resolver import Resolver
 
+# Importar strings de tradução do Kodi
+try:
+    import xbmcaddon
+    addon = xbmcaddon.Addon()
+    DUBBED = addon.getLocalizedString(30200)  # "DUBBED"
+    SUBTITLED = addon.getLocalizedString(30202)  # "SUBTITLED"
+except:
+    # Fallback se não estiver no ambiente Kodi
+    DUBBED = 'DUBLADO'
+    SUBTITLED = 'LEGENDADO'
+
 session = requests.Session()
 USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36'
 session.headers.update({
@@ -116,7 +127,7 @@ class source:
             stripped_no_movie = re.sub(r'\bmovie\b', '', stripped_cand, flags=re.I).strip()
 
             if season_num and season_num > 1 and not is_movie:
-                base_super = re.split(r'(?:season|second|part|temporada|:\s*|—\s*).*$', base.lower(), flags=re.I)[0].strip()
+                base_super = re.split(r'(?:season|second|part|temporada|:\s*|–\s*).*$', base.lower(), flags=re.I)[0].strip()
                 base_super_clean = cls._clean_title(base_super)
                 norm_base = re.sub(r'\bmovie\b', '', base_super_clean, flags=re.I).strip()
             else:
@@ -263,7 +274,7 @@ class source:
             if not players:
                 continue
 
-            prefix = "DUBLADO" if "dublado" in c["title"].lower() else "LEGENDADO"
+            prefix = DUBBED if "dublado" in c["title"].lower() else SUBTITLED
 
             for i, (q, u) in enumerate(players, 1):
                 results.append((f"ANIMESDIGITAL - {prefix} {i}", u))
