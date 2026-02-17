@@ -333,7 +333,7 @@ class source:
             return links
 
     @classmethod
-    def search_tvshows(cls, imdb, year, season, episode):
+    def search_tvshows(cls, imdb, season, episode):
         site_url = cls.get_active_domain()
         links = []
         title, original_title, imdb_year = cls.find_title(imdb)
