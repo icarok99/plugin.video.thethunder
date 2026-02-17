@@ -100,13 +100,13 @@ def search_movies(imdb, year):
     
     return streams_final
 
-def search_tvshows(imdb, year, season, episode):
+def search_tvshows(imdb, season, episode):
     stream_tvshows = []
     non_anime_scrapers = get_non_anime_scrapers()
     
     for modulo in non_anime_scrapers:
         try:
-            result = modulo.source.search_tvshows(imdb, year, season, episode)
+            result = modulo.source.search_tvshows(imdb, season, episode)
             if result:
                 stream_tvshows.append(result)
         except:
@@ -125,8 +125,8 @@ def search_tvshows(imdb, year, season, episode):
 def movie_content(imdb, year):
     return search_movies(imdb, year)
 
-def show_content(imdb, year, season, episode):
-    return search_tvshows(imdb, year, season, episode)
+def show_content(imdb, season, episode):
+    return search_tvshows(imdb, season, episode)
 
 def search_anime_episodes(mal_id, episode):
     stream_animes = []
@@ -157,7 +157,7 @@ def search_anime_movies(mal_id):
     for modulo in anime_scrapers:
         try:
             if hasattr(modulo.source, 'search_animes'):
-                result = modulo.source.search_animes(mal_id, None)
+                result = modulo.source.search_animes(mal_id)
                 if result:
                     stream_animes.append(result)
         except:
