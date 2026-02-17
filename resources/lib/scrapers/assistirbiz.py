@@ -14,25 +14,13 @@ import json
 import unicodedata
 import socket
 
-try:
-    from kodi_helper import myAddon
-    addonId = re.search('plugin://(.+?)/', str(sys.argv[0])).group(1)
-    addon = myAddon(addonId)
-    select = addon.select
-except ImportError:
-    local_path = os.path.dirname(os.path.realpath(__file__))
-    lib_path = local_path.replace('scrapers', '')
-    sys.path.append(lib_path)
-
 from resources.lib.resolver import Resolver
 
-# Importar strings de tradução do Kodi
 try:
     import xbmcaddon
     addon_str = xbmcaddon.Addon()
-    DUBBED = addon_str.getLocalizedString(30200)  # "DUBBED"
+    DUBBED = addon_str.getLocalizedString(30200)
 except:
-    # Fallback se não estiver no ambiente Kodi
     DUBBED = 'DUBLADO'
 
 USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36'
