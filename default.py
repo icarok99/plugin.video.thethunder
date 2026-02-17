@@ -884,7 +884,7 @@ def play_resolve_movies(param):
         if is_auto_play_enabled():
             loading_manager.set_phase3()
             stream, sub = try_resolve_with_fallback(
-                menus_links, None, None, is_anime=False
+                menus_links, is_anime=False
             )
             if not stream:
                 loading_manager.force_close()
@@ -1306,7 +1306,6 @@ def play_resolve_animes(param):
             
             stream, sub = try_resolve_with_fallback(
                 menus_links, 
-                None,
                 episode_num, 
                 is_anime=True
             )
@@ -1423,7 +1422,7 @@ def play_resolve_anime_movies(param):
         if is_auto_play_enabled():
             loading_manager.set_phase3()
             stream, sub = try_resolve_with_fallback(
-                menus_links, None, None, is_anime=True
+                menus_links, is_anime=True
             )
             if not stream:
                 loading_manager.force_close()
