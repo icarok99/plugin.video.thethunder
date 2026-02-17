@@ -16,7 +16,7 @@ session.headers.update({
     'User-Agent': USER_AGENT,
     'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
     'Accept': '*/*',
-    'Referer': 'https://www.overflixtv.bar/',  # ← Esta linha foi removida
+    'Referer': 'https://www.overflixtv.bar/',
 })
 
 try:
