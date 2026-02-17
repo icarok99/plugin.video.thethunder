@@ -186,7 +186,7 @@
             <aligny>center</aligny>
             <font>font13_title</font>
             <textcolor>FFFFFFFF</textcolor>
-            <label>Resolvendo link</label>
+            <label>$ADDON[plugin.video.thethunder 30013]</label>
             <visible>String.IsEqual(Window(10000).Property(loading.phase),3)</visible>
         </control>
 
