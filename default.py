@@ -913,11 +913,23 @@ def play_resolve_movies(param):
                 notify(getString(30402))
                 return
 
-        stop_player()
+        url = stream.split('|')[0] if '|' in stream else stream
+        headers = stream.split('|', 1)[1] if '|' in stream else ''
+        is_direct_file = url.lower().split('?')[0].endswith(('.mp4', '.mkv', '.avi', '.mov', '.webm', '.ts'))
 
-        play_item = xbmcgui.ListItem(path=stream)
+        play_item = xbmcgui.ListItem(path=url)
         play_item.setArt({'thumb': iconimage, 'icon': iconimage, 'fanart': fanart})
         play_item.setContentLookup(False)
+
+        if is_direct_file:
+            play_item.setMimeType('video/mp4')
+            if headers:
+                play_item.setPath(f"{url}|{headers}")
+        else:
+            play_item.setProperty('inputstream', 'inputstream.adaptive')
+            play_item.setProperty('inputstream.adaptive.manifest_type', 'hls')
+            if headers:
+                play_item.setProperty('inputstream.adaptive.stream_headers', headers)
 
         if KODI_MAJOR >= 20:
             info_tag = play_item.getVideoInfoTag()
@@ -1196,14 +1208,26 @@ def play_resolve_tvshows(param):
                 notify(getString(30402))
                 return
         
-        stop_player()
-        
+        url = stream.split('|')[0] if '|' in stream else stream
+        headers = stream.split('|', 1)[1] if '|' in stream else ''
+        is_direct_file = url.lower().split('?')[0].endswith(('.mp4', '.mkv', '.avi', '.mov', '.webm', '.ts'))
+
         showtitle = serie_name
-        
-        play_item = xbmcgui.ListItem(path=stream)
+
+        play_item = xbmcgui.ListItem(path=url)
         play_item.setArt({'thumb': iconimage, 'icon': iconimage, 'fanart': fanart})
         play_item.setContentLookup(False)
-        
+
+        if is_direct_file:
+            play_item.setMimeType('video/mp4')
+            if headers:
+                play_item.setPath(f"{url}|{headers}")
+        else:
+            play_item.setProperty('inputstream', 'inputstream.adaptive')
+            play_item.setProperty('inputstream.adaptive.manifest_type', 'hls')
+            if headers:
+                play_item.setProperty('inputstream.adaptive.stream_headers', headers)
+
         if KODI_MAJOR >= 20:
             info_tag = play_item.getVideoInfoTag()
             info_tag.setTitle(episode_title)
