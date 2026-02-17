@@ -150,7 +150,7 @@ class source:
             return None
 
     @classmethod
-    def search_movies(cls, imdb, year):
+    def search_movies(cls, imdb, year=None):
         pt, original_title, imdb_year = cls.find_title(imdb)
         if not pt:
             return []
@@ -246,9 +246,10 @@ class source:
             card_year = card_year_match.group(1) if card_year_match else None
 
             ratio = difflib.SequenceMatcher(None, pt.lower(), clean.lower()).ratio()
-            if ratio >= 0.82 and (not year or not card_year or abs(int(year) - int(card_year)) <= 1):
+            if ratio >= 0.82 and (not imdb_year or not card_year or abs(int(imdb_year) - int(card_year)) <= 1):
                 serie_url = urljoin("https://goflixy.lol", href)
                 break
+
         if not serie_url:
             return []
 
