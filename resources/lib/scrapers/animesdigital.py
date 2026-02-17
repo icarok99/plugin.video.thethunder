@@ -11,14 +11,12 @@ import requests
 
 from resources.lib.resolver import Resolver
 
-# Importar strings de tradução do Kodi
 try:
     import xbmcaddon
     addon = xbmcaddon.Addon()
-    DUBBED = addon.getLocalizedString(30200)  # "DUBBED"
-    SUBTITLED = addon.getLocalizedString(30202)  # "SUBTITLED"
+    DUBBED = addon.getLocalizedString(30200)
+    SUBTITLED = addon.getLocalizedString(30202)
 except:
-    # Fallback se não estiver no ambiente Kodi
     DUBBED = 'DUBLADO'
     SUBTITLED = 'LEGENDADO'
 
