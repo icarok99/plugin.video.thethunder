@@ -282,7 +282,7 @@ def movies_popular_api(page=1):
 def movies_api(page, t):
     url_map = {
         'premiere': f'https://api.themoviedb.org/3/movie/now_playing?api_key={API_KEY}&page={page}&language={getString(30700)}',
-        'trending':  f'https://api.themoviedb.org/3/trending/movie/day?api_key={API_KEY}&page={page}&language={getString(30700)}'
+        'trending': f'https://api.themoviedb.org/3/trending/movie/day?api_key={API_KEY}&page={page}&language={getString(30700)}'
     }
     url = url_map.get(t)
     if not url:
