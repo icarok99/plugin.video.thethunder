@@ -13,18 +13,15 @@ import requests
 
 from resources.lib.resolver import Resolver
 
-# Importar strings de tradução do Kodi
 try:
     import xbmcaddon
     addon = xbmcaddon.Addon()
-    DUBBED = addon.getLocalizedString(30200)  # "DUBBED"
-    SUBTITLED = addon.getLocalizedString(30202)  # "SUBTITLED"
+    DUBBED = addon.getLocalizedString(30200)
+    SUBTITLED = addon.getLocalizedString(30202)
 except:
-    # Fallback se não estiver no ambiente Kodi
     DUBBED = 'DUBLADO'
     SUBTITLED = 'LEGENDADO'
 
-# Sessão requests com headers realistas
 session = requests.Session()
 USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36'
 session.headers.update({
