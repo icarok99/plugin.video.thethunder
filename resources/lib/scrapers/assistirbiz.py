@@ -14,17 +14,14 @@ import json
 import unicodedata
 import socket
 
-try:
-    from kodi_helper import myAddon
-    addonId = re.search('plugin://(.+?)/', str(sys.argv[0])).group(1)
-    addon = myAddon(addonId)
-    select = addon.select
-except ImportError:
-    local_path = os.path.dirname(os.path.realpath(__file__))
-    lib_path = local_path.replace('scrapers', '')
-    sys.path.append(lib_path)
-
 from resources.lib.resolver import Resolver
+
+try:
+    import xbmcaddon
+    addon_str = xbmcaddon.Addon()
+    DUBBED = addon_str.getLocalizedString(30200)
+except:
+    DUBBED = 'DUBLADO'
 
 USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36'
 
@@ -314,15 +311,15 @@ class source:
                     if player_url:
                         vid_url = cls._extract_players_from_page(player_url)
                         if vid_url:
-                            links.append((f"{WEBSITE} - DUBLADO", vid_url))
+                            links.append((f"{WEBSITE} - {DUBBED}", vid_url))
                         else:
-                            links.append((f"{WEBSITE} - DUBLADO", player_url))
+                            links.append((f"{WEBSITE} - {DUBBED}", player_url))
             return links
         except Exception:
             return links
 
     @classmethod
-    def search_tvshows(cls, imdb, year, season, episode):
+    def search_tvshows(cls, imdb, season, episode):
         links = []
         title, original_title, imdb_year = cls.find_title(imdb)
         if not title and not original_title:
@@ -379,7 +376,7 @@ class source:
                             if json_data:
                                 player_url = cls._construct_player_url(json_data)
                                 if player_url:
-                                    links.append((f"{WEBSITE} - DUBLADO", player_url))
+                                    links.append((f"{WEBSITE} - {DUBBED}", player_url))
                             break
             else:
                 html = r_season.text
@@ -390,7 +387,7 @@ class source:
                     if json_data:
                         player_url = cls._construct_player_url(json_data)
                         if player_url:
-                            links.append((f"{WEBSITE} - DUBLADO", player_url))
+                            links.append((f"{WEBSITE} - {DUBBED}", player_url))
             return links
         except Exception:
             return links

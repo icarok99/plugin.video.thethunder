@@ -20,12 +20,13 @@ session.headers.update({
 })
 
 try:
-    from resources.lib.autotranslate import AutoTranslate
-    portuguese = AutoTranslate.language('Portuguese')
-    english = AutoTranslate.language('English')
-except ImportError:
-    portuguese = 'DUBLADO'
-    english = 'LEGENDADO'
+    import xbmcaddon
+    addon = xbmcaddon.Addon()
+    DUBBED = addon.getLocalizedString(30200)
+    SUBTITLED = addon.getLocalizedString(30202)
+except:
+    DUBBED = 'DUBLADO'
+    SUBTITLED = 'LEGENDADO'
 
 try:
     from kodi_helper import myAddon
@@ -304,7 +305,7 @@ class source:
             audio_tabs = soup0.find('span', class_='tab_order')
             languages = ['dublado', 'legendado'] if audio_tabs else ['dublado']
             for lang in languages:
-                lang_label = portuguese if lang == 'dublado' else english
+                lang_label = DUBBED if lang == 'dublado' else SUBTITLED
                 lang_url = movie_urls.get(lang)
                 if lang_url:
                     if 'area=online' not in lang_url:
@@ -332,7 +333,7 @@ class source:
             return links
 
     @classmethod
-    def search_tvshows(cls, imdb, year, season, episode):
+    def search_tvshows(cls, imdb, season, episode):
         site_url = cls.get_active_domain()
         links = []
         title, original_title, imdb_year = cls.find_title(imdb)
@@ -442,7 +443,7 @@ class source:
                 if not episode_url:
                     continue
 
-                lang_label = portuguese if lang == 'dublado' else english
+                lang_label = DUBBED if lang == 'dublado' else SUBTITLED
                 lang_url = episode_url
 
                 rlang = session.get(lang_url, headers={'Referer': site_url})

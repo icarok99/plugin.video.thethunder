@@ -8,13 +8,26 @@ import xbmcgui
 import xbmcvfs
 import xbmcaddon
 import xbmcplugin
+import threading
 from datetime import datetime
 from resources.lib.helper import *
 from resources.lib import httpclient, sources
+from resources.lib.player import get_player
 from urllib.parse import urlparse, unquote, parse_qs
-from resources.lib.autotranslate import AutoTranslate
 
-# AUTO UPDATE (silencioso) - branch main
+
+_addon = xbmcaddon.Addon()
+
+def getString(string_id):
+    return _addon.getLocalizedString(string_id)
+
+from resources.lib.windows.loading_manager import loading_manager
+
+try:
+    from urllib import urlencode
+except ImportError:
+    from urllib.parse import urlencode
+
 try:
     from resources.lib import update
     update.auto_update()
@@ -34,12 +47,12 @@ class Donate(xbmcgui.WindowDialog):
         self.image = xbmcgui.ControlImage(440, 145, 400, 400, pix_image)
         self.text = xbmcgui.ControlLabel(
             x=455, y=570, width=1280, height=25,
-            label=AutoTranslate.language('If you like this add-on, support via PIX above'),
+            label=getString(30500),
             textColor='white'
         )
         self.text2 = xbmcgui.ControlLabel(
             x=535, y=600, width=1280, height=25,
-            label=AutoTranslate.language('Press BACK to exit'),
+            label=getString(30501),
             textColor='white'
         )
         self.addControl(self.image)
@@ -66,11 +79,11 @@ def get_preferred_language():
         addon = xbmcaddon.Addon()
         valor = addon.getSetting("preferred_language")
         if valor == "0":
-            return AutoTranslate.language("Portuguese")
+            return getString(30200)
         else:
-            return AutoTranslate.language("English")
+            return getString(30202)
     except:
-        return AutoTranslate.language("Portuguese")
+        return getString(30200)
 
 def is_auto_play_enabled():
     try:
@@ -78,7 +91,139 @@ def is_auto_play_enabled():
     except:
         return False
 
-def try_resolve_with_fallback(menus_links, season=None, episode=None, is_anime=False):
+
+def build_tvshow_playlist(tmdb_id, season_num, current_episode_num, serie_name, original_name, all_episodes, imdb_id):
+    if not all_episodes or not isinstance(all_episodes, list):
+        return
+    
+    if not isinstance(season_num, int) or not isinstance(current_episode_num, int):
+        return
+    
+    playlist = xbmc.PlayList(xbmc.PLAYLIST_VIDEO)
+    
+    for episode_data in all_episodes:
+        if not isinstance(episode_data, dict):
+            continue
+            
+        ep_num = episode_data.get('episode')
+        if not ep_num or not isinstance(ep_num, int):
+            continue
+            
+        name = episode_data.get('episode_title', '')
+        img = episode_data.get('thumbnail', '')
+        fanart = episode_data.get('fanart', '')
+        description = episode_data.get('description', '')
+        
+        if ep_num > current_episode_num:
+            params = {
+                'serie_name': serie_name,
+                'original_name': original_name,
+                'tmdb_id': str(tmdb_id),
+                'imdb': imdb_id,
+                'season_num': str(season_num),
+                'episode_num': str(ep_num),
+                'episode_title': name,
+                'iconimage': img,
+                'fanart': fanart,
+                'description': description
+            }
+            
+            plugin_url = 'plugin://plugin.video.thethunder/play_resolve_tvshows/{}'.format(urlencode(params))
+            
+            title = '{}x{} {}'.format(season_num, str(ep_num).zfill(2), name) if name else '{}x{}'.format(season_num, str(ep_num).zfill(2))
+            
+            list_item = xbmcgui.ListItem(title)
+            list_item.setArt({'thumb': img, 'icon': img, 'fanart': fanart or img})
+            
+            if KODI_MAJOR >= 20:
+                info_tag = list_item.getVideoInfoTag()
+                info_tag.setTitle(name if name else title)
+                info_tag.setTvShowTitle(serie_name)
+                info_tag.setPlot(description)
+                info_tag.setMediaType('episode')
+                info_tag.setSeason(season_num)
+                info_tag.setEpisode(ep_num)
+                if original_name:
+                    info_tag.setOriginalTitle(original_name)
+            else:
+                list_item.setInfo('video', {
+                    'title': name if name else title,
+                    'tvshowtitle': serie_name,
+                    'plot': description,
+                    'mediatype': 'episode',
+                    'season': season_num,
+                    'episode': ep_num,
+                    'originaltitle': original_name,
+                })
+            
+            playlist.add(url=plugin_url, listitem=list_item)
+
+def build_anime_playlist(mal_id, current_episode_num, serie_name, original_name, all_episodes):
+    if not all_episodes or not isinstance(all_episodes, list):
+        return
+    
+    if not isinstance(current_episode_num, int):
+        return
+    
+    playlist = xbmc.PlayList(xbmc.PLAYLIST_VIDEO)
+    
+    for episode_data in all_episodes:
+        if not isinstance(episode_data, dict):
+            continue
+            
+        ep_num = episode_data.get('episode')
+        if not ep_num or not isinstance(ep_num, int):
+            continue
+            
+        name = episode_data.get('episode_title', '')
+        img = episode_data.get('thumbnail', '')
+        fanart = episode_data.get('fanart', '')
+        description = episode_data.get('description', '')
+        
+        if ep_num > current_episode_num:
+            params = {
+                'serie_name': serie_name,
+                'original_name': original_name,
+                'mal_id': str(mal_id),
+                'episode_num': str(ep_num),
+                'episode_title': name,
+                'iconimage': img,
+                'fanart': fanart,
+                'description': description,
+                'is_anime': 'true'
+            }
+            
+            plugin_url = 'plugin://plugin.video.thethunder/play_resolve_animes/{}'.format(urlencode(params))
+            
+            title = 'Ep {} {}'.format(ep_num, name) if name else 'Ep {}'.format(ep_num)
+            
+            list_item = xbmcgui.ListItem(title)
+            list_item.setArt({'thumb': img, 'icon': img, 'fanart': fanart or img})
+            
+            if KODI_MAJOR >= 20:
+                info_tag = list_item.getVideoInfoTag()
+                info_tag.setTitle(name if name else f'Ep {ep_num}')
+                info_tag.setTvShowTitle(serie_name)
+                info_tag.setPlot(description)
+                info_tag.setMediaType('episode')
+                info_tag.setSeason(1)
+                info_tag.setEpisode(ep_num)
+                if original_name:
+                    info_tag.setOriginalTitle(original_name)
+            else:
+                list_item.setInfo('video', {
+                    'title': name if name else f'Ep {ep_num}',
+                    'tvshowtitle': serie_name,
+                    'plot': description,
+                    'mediatype': 'episode',
+                    'season': 1,
+                    'episode': ep_num,
+                    'originaltitle': original_name
+                })
+            
+            playlist.add(url=plugin_url, listitem=list_item)
+
+def try_resolve_with_fallback(menus_links, season, episode, is_anime=False):
     if not menus_links:
         return None, None
     preferred_lang = get_preferred_language().upper()
@@ -87,11 +232,11 @@ def try_resolve_with_fallback(menus_links, season=None, episode=None, is_anime=F
     def get_priority_score(label, url=""):
         label_u = (label or "").upper()
         score = 0
-        if "DUBLADO" in preferred_lang or "PORTUGUÊS" in preferred_lang:
-            if any(x in label_u for x in ["DUBLADO", "DUB", "PT-BR", "PORTUGUÊS", "PTBR"]):
+        if "DUBBED" in preferred_lang or "DUBLADO" in preferred_lang:
+            if any(x in label_u for x in ["DUBLADO", "DUB", "DUBBED", "PT-BR", "PORTUGUÊS", "PTBR"]):
                 score += 1000
         else:
-            if any(x in label_u for x in ["LEGENDADO", "LEG", "SUB", "INGLÊS", "ENGLISH", "SUBTITLED"]):
+            if any(x in label_u for x in ["LEGENDADO", "LEG", "SUB", "SUBTITLED"]):
                 score += 1000
         url_lower = url.lower() if url else ""
         for i, host in enumerate(TOP_HOSTS):
@@ -129,7 +274,7 @@ def try_resolve_with_fallback(menus_links, season=None, episode=None, is_anime=F
             continue
     return None, None
 
-def auto_play_preferred_language(mal_id, imdb, year, season, episode, video_title, iconimage, fanart, description, is_anime='false'):
+def auto_play_preferred_language(mal_id, tmdb_id, imdb, year, season, episode, video_title, iconimage, fanart, description, is_anime='false'):
     try:
         if is_anime == 'true':
             if episode is None:
@@ -139,10 +284,10 @@ def auto_play_preferred_language(mal_id, imdb, year, season, episode, video_titl
         elif season is None and episode is None:
             menus_links = sources.movie_content(imdb, year)
         else:
-            menus_links = sources.show_content(imdb, year, season, episode)
+            menus_links = sources.show_content(imdb, season, episode)
         
         if not menus_links:
-            notify(AutoTranslate.language("No sources available"))
+            notify(getString(30401))
             return False
         
         stream, sub = try_resolve_with_fallback(
@@ -153,7 +298,7 @@ def auto_play_preferred_language(mal_id, imdb, year, season, episode, video_titl
         )
         
         if not stream:
-            notify(AutoTranslate.language("Stream unavailable"))
+            notify(getString(30402))
             return False
         stop_player()
         
@@ -161,8 +306,8 @@ def auto_play_preferred_language(mal_id, imdb, year, season, episode, video_titl
         play_item.setArt({'thumb': iconimage, 'icon': iconimage, 'fanart': fanart})
         
         if season and episode:
-            showtitle = video_title.split(" - ")[0] if " - " in video_title else video_title
-            episode_title = video_title.split(" - ")[1] if " - " in video_title else f"{AutoTranslate.language('Episode')} {episode}"
+            showtitle = serie_name
+            episode_title = video_title or f"{getString(30602)} {episode}"
             
             if KODI_MAJOR >= 20:
                 info_tag = play_item.getVideoInfoTag()
@@ -170,13 +315,18 @@ def auto_play_preferred_language(mal_id, imdb, year, season, episode, video_titl
                 info_tag.setTvShowTitle(showtitle)
                 info_tag.setPlot(description)
                 info_tag.setMediaType('episode')
+                if tmdb_id:
+                    info_tag.setUniqueIDs({'tmdb': tmdb_id}, 'tmdb')
             else:
-                play_item.setInfo('video', {
+                info_dict = {
                     'title': episode_title,
                     'tvshowtitle': showtitle,
                     'plot': description,
                     'mediatype': 'episode'
-                })
+                }
+                if tmdb_id:
+                    info_dict['uniqueid'] = {'tmdb': tmdb_id}
+                play_item.setInfo('video', info_dict)
         else:
             if KODI_MAJOR >= 20:
                 info_tag = play_item.getVideoInfoTag()
@@ -204,11 +354,11 @@ def auto_play_preferred_language(mal_id, imdb, year, season, episode, video_titl
 
 @route('/')
 def index():
-    addMenuItem({'name': AutoTranslate.language('Movies'), 'description': '', 'iconimage': get_icon('movies')}, destiny='/movies')
-    addMenuItem({'name': AutoTranslate.language('Tv shows'), 'description': '', 'iconimage': get_icon('tvshows')}, destiny='/tvshows')
-    addMenuItem({'name': AutoTranslate.language('Animes'), 'description': '', 'iconimage': get_icon('animes')}, destiny='/anime')
-    addMenuItem({'name': AutoTranslate.language('donation'), 'description': '', 'iconimage': get_icon('donate')}, destiny='/donate', folder=False)
-    addMenuItem({'name': AutoTranslate.language('settings'), 'description': '', 'iconimage': get_icon('settings')}, destiny='/settings', folder=False)
+    addMenuItem({'name': getString(30000), 'description': '', 'iconimage': get_icon('movies')}, destiny='/movies')
+    addMenuItem({'name': getString(30001), 'description': '', 'iconimage': get_icon('tvshows')}, destiny='/tvshows')
+    addMenuItem({'name': getString(30002), 'description': '', 'iconimage': get_icon('animes')}, destiny='/anime')
+    addMenuItem({'name': getString(30018), 'description': '', 'iconimage': get_icon('donate')}, destiny='/donate', folder=False)
+    addMenuItem({'name': getString(30017), 'description': '', 'iconimage': get_icon('settings')}, destiny='/settings', folder=False)
     end()
     setview('WideList')
 
@@ -228,35 +378,35 @@ def settings():
 
 @route('/movies')
 def movies():
-    addMenuItem({'name': AutoTranslate.language('New movies'), 'description': '', 'iconimage': get_icon('premiere')}, destiny='/premiere_movies')
-    addMenuItem({'name': AutoTranslate.language('Trending movies'), 'description': '', 'iconimage': get_icon('trending')}, destiny='/trending_movies')
-    addMenuItem({'name': AutoTranslate.language('Popular movies'), 'description': '', 'iconimage': get_icon('popular')}, destiny='/popular_movies')
-    addMenuItem({'name': AutoTranslate.language('Search movies'), 'description': '', 'iconimage': get_icon('search')}, destiny='/search_movies')
+    addMenuItem({'name': getString(30003), 'description': '', 'iconimage': get_icon('premiere')}, destiny='/premiere_movies')
+    addMenuItem({'name': getString(30005), 'description': '', 'iconimage': get_icon('trending')}, destiny='/trending_movies')
+    addMenuItem({'name': getString(30007), 'description': '', 'iconimage': get_icon('popular')}, destiny='/popular_movies')
+    addMenuItem({'name': getString(30014), 'description': '', 'iconimage': get_icon('search')}, destiny='/search_movies')
     end()
     setview('WideList')
 
 @route('/tvshows')
 def tvshows():
-    addMenuItem({'name': AutoTranslate.language('New tv shows'), 'description': '', 'iconimage': get_icon('premiere')}, destiny='/premiere_tvshows')
-    addMenuItem({'name': AutoTranslate.language('Trending tv shows'), 'description': '', 'iconimage': get_icon('trending')}, destiny='/trending_tvshows')
-    addMenuItem({'name': AutoTranslate.language('Popular tv shows'), 'description': '', 'iconimage': get_icon('popular')}, destiny='/popular_tvshows')
-    addMenuItem({'name': AutoTranslate.language('Search tv shows'), 'description': '', 'iconimage': get_icon('search')}, destiny='/search_tvshows')
+    addMenuItem({'name': getString(30004), 'description': '', 'iconimage': get_icon('premiere')}, destiny='/premiere_tvshows')
+    addMenuItem({'name': getString(30006), 'description': '', 'iconimage': get_icon('trending')}, destiny='/trending_tvshows')
+    addMenuItem({'name': getString(30008), 'description': '', 'iconimage': get_icon('popular')}, destiny='/popular_tvshows')
+    addMenuItem({'name': getString(30015), 'description': '', 'iconimage': get_icon('search')}, destiny='/search_tvshows')
     end()
     setview('WideList')
 
 @route('/anime')
 def anime():
-    addMenuItem({'name': AutoTranslate.language('Popular animes'), 'description': '', 'iconimage': get_icon('popular')}, destiny='/popular_anime')
-    addMenuItem({'name': AutoTranslate.language('Season animes'), 'description': '', 'iconimage': get_icon('airing')}, destiny='/airing_anime')
-    addMenuItem({'name': AutoTranslate.language('Animes by year of release'), 'description': '', 'iconimage': get_icon('premiere')}, destiny='/animes_by_year')
-    addMenuItem({'name': AutoTranslate.language('Search animes'), 'description': '', 'iconimage': get_icon('search')}, destiny='/search_anime')
+    addMenuItem({'name': getString(30009), 'description': '', 'iconimage': get_icon('popular')}, destiny='/popular_anime')
+    addMenuItem({'name': getString(30010), 'description': '', 'iconimage': get_icon('airing')}, destiny='/airing_anime')
+    addMenuItem({'name': getString(30011), 'description': '', 'iconimage': get_icon('premiere')}, destiny='/animes_by_year')
+    addMenuItem({'name': getString(30016), 'description': '', 'iconimage': get_icon('search')}, destiny='/search_anime')
     end()
     setview('WideList')
 
 @route('/search_movies')
 def search_movies(param=None):
     param = param or {}
-    search = param.get('search') if 'search' in param else input_text(heading=AutoTranslate.language('Search movies'))
+    search = param.get('search') if 'search' in param else input_text(heading=getString(30014))
     if not search:
         return
     page = int(param.get('page', 1))
@@ -273,7 +423,7 @@ def search_movies(param=None):
         
         addMenuItem({
             'name': display_name,
-            'video_id': str(movie['id']),
+            'tmdb_id': str(movie['id']),
             'year': year,
             'iconimage': icon,
             'fanart': fanart,
@@ -284,7 +434,7 @@ def search_movies(param=None):
         }, destiny='/play_resolve_movies', folder=False)
     if page < total_pages:
         addMenuItem({
-            'name': f"[B]{AutoTranslate.language('Page')} {page+1} {AutoTranslate.language('of')} {total_pages}[/B]",
+            'name': f"[B]{getString(30100)} {page+1} {getString(30101)} {total_pages}[/B]",
             'iconimage': get_icon('next'),
             'search': search,
             'page': str(page + 1)
@@ -295,7 +445,7 @@ def search_movies(param=None):
 @route('/search_tvshows')
 def search_tvshows(param=None):
     param = param or {}
-    search = param.get('search') if 'search' in param else input_text(heading=AutoTranslate.language('Search tv shows'))
+    search = param.get('search') if 'search' in param else input_text(heading=getString(30015))
     if not search:
         return
     page = int(param.get('page', 1))
@@ -311,7 +461,7 @@ def search_tvshows(param=None):
         original_name = show.get('original_name', '')
         addMenuItem({
             'name': display_name,
-            'video_id': str(show['id']),
+            'tmdb_id': str(show['id']),
             'iconimage': icon,
             'fanart': fanart,
             'description': description,
@@ -320,7 +470,7 @@ def search_tvshows(param=None):
         }, destiny='/tvshow_season')
     if page < total_pages:
         addMenuItem({
-            'name': f"[B]{AutoTranslate.language('Page')} {page+1} {AutoTranslate.language('of')} {total_pages}[/B]",
+            'name': f"[B]{getString(30100)} {page+1} {getString(30101)} {total_pages}[/B]",
             'iconimage': get_icon('next'),
             'search': search,
             'page': str(page + 1)
@@ -331,7 +481,7 @@ def search_tvshows(param=None):
 @route('/search_anime')
 def search_anime(param=None):
     param = param or {}
-    search = param.get('search') if 'search' in param else input_text(heading=AutoTranslate.language('Search animes'))
+    search = param.get('search') if 'search' in param else input_text(heading=getString(30016))
     if not search:
         return
     page = int(param.get('page', 1))
@@ -355,7 +505,7 @@ def search_anime(param=None):
         }, destiny='/anime_episodes')
     if page < total_pages:
         addMenuItem({
-            'name': f"[B]{AutoTranslate.language('Page')} {page+1} {AutoTranslate.language('of')} {total_pages}[/B]",
+            'name': f"[B]{getString(30100)} {page+1} {getString(30101)} {total_pages}[/B]",
             'iconimage': get_icon('next'),
             'search': search,
             'page': str(page + 1)
@@ -377,11 +527,11 @@ def popular_movies(param=None):
             fanart = f"https://image.tmdb.org/t/p/original{movie.get('backdrop_path')}" if movie.get('backdrop_path') else ''
             description = movie.get('overview', '')
             original_name = movie.get('original_title', '')
-            video_id = str(movie['id'])
+            tmdb_id = str(movie['id'])
             
             addMenuItem({
                 'name': title,
-                'video_id': video_id,
+                'tmdb_id': tmdb_id,
                 'year': year,
                 'iconimage': icon,
                 'fanart': fanart,
@@ -393,7 +543,7 @@ def popular_movies(param=None):
             }, destiny='/play_resolve_movies', folder=False)
         if page < total_pages:
             addMenuItem({
-                'name': f"[B]{AutoTranslate.language('Page')} {page+1} {AutoTranslate.language('of')} {total_pages}[/B]",
+                'name': f"[B]{getString(30100)} {page+1} {getString(30101)} {total_pages}[/B]",
                 'iconimage': get_icon('next'),
                 'page': str(page + 1)
             }, destiny='/popular_movies')
@@ -414,11 +564,11 @@ def trending_movies(param=None):
             fanart = f"https://image.tmdb.org/t/p/original{movie.get('backdrop_path')}" if movie.get('backdrop_path') else ''
             description = movie.get('overview', '')
             original_name = movie.get('original_title', '')
-            video_id = str(movie['id'])
+            tmdb_id = str(movie['id'])
             
             addMenuItem({
                 'name': title,
-                'video_id': video_id,
+                'tmdb_id': tmdb_id,
                 'year': year,
                 'iconimage': icon,
                 'fanart': fanart,
@@ -430,7 +580,7 @@ def trending_movies(param=None):
             }, destiny='/play_resolve_movies', folder=False)
         if page < total_pages:
             addMenuItem({
-                'name': f"[B]{AutoTranslate.language('Page')} {page+1} {AutoTranslate.language('of')} {total_pages}[/B]",
+                'name': f"[B]{getString(30100)} {page+1} {getString(30101)} {total_pages}[/B]",
                 'iconimage': get_icon('next'),
                 'page': str(page + 1)
             }, destiny='/trending_movies')
@@ -451,11 +601,11 @@ def premiere_movies(param=None):
             fanart = f"https://image.tmdb.org/t/p/original{movie.get('backdrop_path')}" if movie.get('backdrop_path') else ''
             description = movie.get('overview', '')
             original_name = movie.get('original_title', '')
-            video_id = str(movie['id'])
+            tmdb_id = str(movie['id'])
             
             addMenuItem({
                 'name': title,
-                'video_id': video_id,
+                'tmdb_id': tmdb_id,
                 'year': year,
                 'iconimage': icon,
                 'fanart': fanart,
@@ -467,7 +617,7 @@ def premiere_movies(param=None):
             }, destiny='/play_resolve_movies', folder=False)
         if page < total_pages:
             addMenuItem({
-                'name': f"[B]{AutoTranslate.language('Page')} {page+1} {AutoTranslate.language('of')} {total_pages}[/B]",
+                'name': f"[B]{getString(30100)} {page+1} {getString(30101)} {total_pages}[/B]",
                 'iconimage': get_icon('next'),
                 'page': str(page + 1)
             }, destiny='/premiere_movies')
@@ -490,7 +640,7 @@ def popular_tvshows(param=None):
             original_name = show.get('original_name', '')
             addMenuItem({
                 'name': title,
-                'video_id': str(show['id']),
+                'tmdb_id': str(show['id']),
                 'year': year,
                 'iconimage': icon,
                 'fanart': fanart,
@@ -501,7 +651,7 @@ def popular_tvshows(param=None):
             }, destiny='/tvshow_season')
         if page < total_pages:
             addMenuItem({
-                'name': f"[B]{AutoTranslate.language('Page')} {page+1} {AutoTranslate.language('of')} {total_pages}[/B]",
+                'name': f"[B]{getString(30100)} {page+1} {getString(30101)} {total_pages}[/B]",
                 'iconimage': get_icon('next'),
                 'page': str(page + 1)
             }, destiny='/popular_tvshows')
@@ -524,7 +674,7 @@ def trending_tvshows(param=None):
             original_name = show.get('original_name', '')
             addMenuItem({
                 'name': title,
-                'video_id': str(show['id']),
+                'tmdb_id': str(show['id']),
                 'year': year,
                 'iconimage': icon,
                 'fanart': fanart,
@@ -535,7 +685,7 @@ def trending_tvshows(param=None):
             }, destiny='/tvshow_season')
         if page < total_pages:
             addMenuItem({
-                'name': f"[B]{AutoTranslate.language('Page')} {page+1} {AutoTranslate.language('of')} {total_pages}[/B]",
+                'name': f"[B]{getString(30100)} {page+1} {getString(30101)} {total_pages}[/B]",
                 'iconimage': get_icon('next'),
                 'page': str(page + 1)
             }, destiny='/trending_tvshows')
@@ -558,7 +708,7 @@ def premiere_tvshows(param=None):
             original_name = show.get('original_name', '')
             addMenuItem({
                 'name': title,
-                'video_id': str(show['id']),
+                'tmdb_id': str(show['id']),
                 'year': year,
                 'iconimage': icon,
                 'fanart': fanart,
@@ -569,7 +719,7 @@ def premiere_tvshows(param=None):
             }, destiny='/tvshow_season')
         if page < total_pages:
             addMenuItem({
-                'name': f"[B]{AutoTranslate.language('Page')} {page+1} {AutoTranslate.language('of')} {total_pages}[/B]",
+                'name': f"[B]{getString(30100)} {page+1} {getString(30101)} {total_pages}[/B]",
                 'iconimage': get_icon('next'),
                 'page': str(page + 1)
             }, destiny='/premiere_tvshows')
@@ -600,7 +750,7 @@ def popular_anime(param=None):
         }, destiny='/anime_episodes')
     if page < total_pages:
         addMenuItem({
-            'name': f"[B]{AutoTranslate.language('Page')} {page+1} {AutoTranslate.language('of')} {total_pages}[/B]",
+            'name': f"[B]{getString(30100)} {page+1} {getString(30101)} {total_pages}[/B]",
             'iconimage': get_icon('next'),
             'page': str(page + 1)
         }, destiny='/popular_anime')
@@ -631,7 +781,7 @@ def airing_anime(param=None):
         }, destiny='/anime_episodes')
     if page < total_pages:
         addMenuItem({
-            'name': f"[B]{AutoTranslate.language('Page')} {page+1} {AutoTranslate.language('of')} {total_pages}[/B]",
+            'name': f"[B]{getString(30100)} {page+1} {getString(30101)} {total_pages}[/B]",
             'iconimage': get_icon('next'),
             'page': str(page + 1)
         }, destiny='/airing_anime')
@@ -657,10 +807,10 @@ def animes_seasons(param):
     param = param or {}
     year = param.get('year', '')
     seasons = [
-        ('winter', AutoTranslate.language('Winter')),
-        ('spring', AutoTranslate.language('Spring')),
-        ('summer', AutoTranslate.language('Summer')),
-        ('fall', AutoTranslate.language('Fall'))
+        ('winter', getString(30603)),
+        ('spring', getString(30604)),
+        ('summer', getString(30605)),
+        ('fall', getString(30606))
     ]
     setcontent('videos')
     for season_key, season_name in seasons:
@@ -704,18 +854,12 @@ def animes_by_season(param):
 
         if page < total_pages:
             addMenuItem({
-                'name': f"[B]{AutoTranslate.language('Page')} {page+1} {AutoTranslate.language('of')} {total_pages}[/B]",
+                'name': f"[B]{getString(30100)} {page+1} {getString(30101)} {total_pages}[/B]",
                 'iconimage': get_icon('next'),
                 'anime_season': anime_season,
                 'year': year,
                 'page': str(page + 1)
             }, destiny='/animes_by_season')
-
-        addMenuItem({
-            'name': f'[COLOR grey][ {AutoTranslate.language("Voltar às estações")} ][/COLOR]',
-            'iconimage': get_icon('back'),
-            'year': year,
-        }, destiny='/animes_seasons')
 
         end()
         setview('List')
@@ -726,103 +870,128 @@ def animes_by_season(param):
 @route('/play_resolve_movies')
 def play_resolve_movies(param):
     param = param or {}
-    video_id = param.get('video_id', '')
+    tmdb_id = param.get('tmdb_id', '')
     year = param.get('year', '')
     movie_name = param.get('movie_name', '')
     iconimage = param.get('iconimage', get_icon('movies'))
     fanart = param.get('fanart', '')
     description = param.get('description', '')
-    
+
     try:
-        show_src = httpclient.open_movie_api(video_id)
+        show_src = httpclient.open_movie_api(tmdb_id)
         if not movie_name:
             movie_name = show_src.get('title', '')
         imdb = show_src.get('external_ids', {}).get('imdb_id', '')
         original_name = show_src.get('original_title', '')
-        
-        menus_links = sources.movie_content(imdb, year)
-        
-        if not menus_links:
-            notify(AutoTranslate.language("No sources available"))
-            return
-        
-        if is_auto_play_enabled():
-            success = auto_play_preferred_language(
-                None, imdb, year, None, None, 
-                movie_name, iconimage, fanart, description
-            )
-            if success:
-                return
-        
-        items_options = [option for option, link in menus_links]
-        
-        op2 = xbmcgui.Dialog().select(
-            AutoTranslate.language('Select a player'), 
-            items_options
-        )
-        
-        if op2 >= 0:
-            selected_url = menus_links[op2][1]
-            
-            try:
-                decoded = unquote(selected_url)
-                parsed = urlparse(decoded)
-                qs = parse_qs(parsed.query)
-                final_url = qs.get('url', [decoded])[0] or qs.get('u', [decoded])[0] or decoded
-                
-                stream, sub = sources.select_resolver_movie(final_url)
-                
-                if not stream:
-                    notify(AutoTranslate.language("Stream unavailable"))
-                    return
-                
-                stop_player()
-                
-                play_item = xbmcgui.ListItem(path=stream)
-                play_item.setArt({'thumb': iconimage, 'icon': iconimage, 'fanart': fanart})
-                play_item.setContentLookup(False)
-                
-                if KODI_MAJOR >= 20:
-                    info_tag = play_item.getVideoInfoTag()
-                    info_tag.setTitle(movie_name)
-                    info_tag.setPlot(description)
-                    info_tag.setMediaType('movie')
-                    if year:
-                        info_tag.setYear(int(year))
-                    if original_name:
-                        info_tag.setOriginalTitle(original_name)
-                else:
-                    info_dict = {
-                        'title': movie_name,
-                        'plot': description,
-                        'mediatype': 'movie'
-                    }
-                    if imdb:
-                        info_dict['imdbnumber'] = imdb
-                    if year:
-                        info_dict['year'] = int(year)
-                    if original_name:
-                        info_dict['originaltitle'] = original_name
-                    play_item.setInfo('video', info_dict)
-                
-                if sub:
-                    play_item.setSubtitles([sub])
-                
-                xbmcplugin.setResolvedUrl(int(sys.argv[1]), True, play_item)
-            except:
-                notify(AutoTranslate.language('Error trying to play'))
     except:
-        notify(AutoTranslate.language('Error'))
+        notify(getString(30805))
+        return
+
+    loading_manager.show(fanart_path=fanart)
+
+    try:
+        menus_links = sources.movie_content(imdb, year)
+        loading_manager.set_sources_found(len(menus_links))
+
+        if not menus_links:
+            loading_manager.force_close()
+            notify(getString(30401))
+            return
+
+        if is_auto_play_enabled():
+            loading_manager.set_phase3()
+            stream, sub = try_resolve_with_fallback(
+                menus_links, is_anime=False
+            )
+            if not stream:
+                loading_manager.force_close()
+                notify(getString(30402))
+                return
+        else:
+            player_list = [(name, "") for name, url in menus_links]
+            selected_index = loading_manager.set_phase2(player_list)
+
+            if selected_index < 0:
+                loading_manager.force_close()
+                return
+
+            loading_manager.set_phase3()
+            selected_url = menus_links[selected_index][1]
+
+            decoded = unquote(selected_url)
+            parsed = urlparse(decoded)
+            qs = parse_qs(parsed.query)
+            final_url = qs.get('url', [decoded])[0] or qs.get('u', [decoded])[0] or decoded
+
+            stream, sub = sources.select_resolver_movie(final_url)
+
+            if not stream:
+                loading_manager.force_close()
+                notify(getString(30402))
+                return
+
+        url = stream.split('|')[0] if '|' in stream else stream
+        headers = stream.split('|', 1)[1] if '|' in stream else ''
+        is_direct_file = url.lower().split('?')[0].endswith(('.mp4', '.mkv', '.avi', '.mov', '.webm', '.ts'))
+
+        play_item = xbmcgui.ListItem(path=url)
+        play_item.setArt({'thumb': iconimage, 'icon': iconimage, 'fanart': fanart})
+        play_item.setContentLookup(False)
+
+        if is_direct_file:
+            play_item.setMimeType('video/mp4')
+            if headers:
+                play_item.setPath(f"{url}|{headers}")
+        else:
+            play_item.setProperty('inputstream', 'inputstream.adaptive')
+            play_item.setProperty('inputstream.adaptive.manifest_type', 'hls')
+            if headers:
+                play_item.setProperty('inputstream.adaptive.stream_headers', headers)
+
+        if KODI_MAJOR >= 20:
+            info_tag = play_item.getVideoInfoTag()
+            info_tag.setTitle(movie_name)
+            info_tag.setPlot(description)
+            info_tag.setMediaType('movie')
+            if year:
+                info_tag.setYear(int(year))
+            if original_name:
+                info_tag.setOriginalTitle(original_name)
+            if imdb:
+                info_tag.setUniqueIDs({'imdb': imdb}, 'imdb')
+        else:
+            info_dict = {
+                'title': movie_name,
+                'plot': description,
+                'mediatype': 'movie'
+            }
+            if imdb:
+                info_dict['imdbnumber'] = imdb
+            if year:
+                info_dict['year'] = int(year)
+            if original_name:
+                info_dict['originaltitle'] = original_name
+            play_item.setInfo('video', info_dict)
+
+        if sub:
+            play_item.setSubtitles([sub])
+
+        xbmcplugin.setResolvedUrl(int(sys.argv[1]), True, play_item)
+        loading_manager.close()
+
+    except Exception as e:
+        loading_manager.force_close()
+        notify(getString(30304))
 
 @route('/tvshow_season')
 def tvshow_season(param):
     param = param or {}
-    video_id = param.get('video_id', '')
+    tmdb_id = param.get('tmdb_id', '')
     year = param.get('year', '')
     serie_name = param.get('serie_name', '')
     
     try:
-        show_src = httpclient.open_season_api(video_id)
+        show_src = httpclient.open_season_api(tmdb_id)
         if not serie_name:
             serie_name = show_src.get('name', '')
         iconimage = f"https://image.tmdb.org/t/p/w500{show_src.get('poster_path')}" if show_src.get('poster_path') else get_icon('series')
@@ -836,7 +1005,7 @@ def tvshow_season(param):
             season_num = season.get('season_number')
             if season_num == 0:
                 continue
-            season_name = f"{season_num}ª {AutoTranslate.language('Season')}"
+            season_name = f"{season_num}ª {getString(30601)}"
             season_icon = f"https://image.tmdb.org/t/p/w500{season.get('poster_path')}" if season.get('poster_path') else iconimage
             
             addMenuItem({
@@ -844,7 +1013,7 @@ def tvshow_season(param):
                 'iconimage': season_icon,
                 'fanart': fanart,
                 'description': season.get('overview', ''),
-                'video_id': video_id,
+                'tmdb_id': tmdb_id,
                 'season_num': str(season_num),
                 'year': year,
                 'serie_name': serie_name,
@@ -904,27 +1073,31 @@ def anime_episodes(param):
             epnum = episode.get('mal_id')
             ep_name = episode.get('title') or f"{anime_name} {epnum}"
             icon = episode.get('images', {}).get('jpg', {}).get('image_url') or iconimage
-            name = f"{int(epnum):02d} - {ep_name}"
+            name = f"Ep {int(epnum):02d} {ep_name}"
             addMenuItem({
                 'name': name,
                 'description': episode.get('synopsis') or description,
                 'iconimage': icon,
                 'fanart': fanart,
                 'mal_id': mal_id,
-                'year': year,
                 'episode_num': str(epnum),
-                'video_title': f"{anime_name} - {ep_name}",
+                'serie_name': anime_name,
+                'episode_title': ep_name,
                 'is_anime': is_anime,
+                'episode': int(epnum),
+                'season': 1,
+                'tvshowtitle': anime_name,
+                'mediatype': 'episode',
                 'playable': 'true'
             }, destiny='/play_resolve_animes', folder=False)
         end()
     except:
-        notify(AutoTranslate.language("Failed to load details"))
+        notify(getString(30406))
 
 @route('/open_episodes')
 def open_episodes(param):
     param = param or {}
-    video_id = param.get('video_id', '')
+    tmdb_id = param.get('tmdb_id', '')
     season_num = param.get('season_num', '')
     year = param.get('year', '')
     serie_name = param.get('serie_name', '')
@@ -932,15 +1105,16 @@ def open_episodes(param):
     original_name = param.get('original_name', '')
     
     try:
-        show_src = httpclient.open_season_api(video_id)
+        show_src = httpclient.open_season_api(tmdb_id)
         if not serie_name:
             serie_name = show_src.get('name', '')
         if not imdb:
             imdb = show_src.get('external_ids', {}).get('imdb_id', '')
         
-        src = httpclient.show_episode_api(video_id, season_num)
+        src = httpclient.show_episode_api(tmdb_id, season_num)
         
         iconimage = f"https://image.tmdb.org/t/p/w500{show_src.get('poster_path')}" if show_src.get('poster_path') else get_icon('series')
+        serie_fanart = f"https://image.tmdb.org/t/p/original{show_src.get('backdrop_path')}" if show_src.get('backdrop_path') else ''
         
         today = datetime.now().date()
         
@@ -958,24 +1132,24 @@ def open_episodes(param):
             episode_num = str(episode.get('episode_number'))
             ep_name = episode.get('name', f"{serie_name} {episode_num}")
             icon = f"https://image.tmdb.org/t/p/w500{episode.get('still_path')}" if episode.get('still_path') else get_icon('series')
-            fanart = f"https://image.tmdb.org/t/p/original{episode.get('backdrop_path')}" if episode.get('backdrop_path') else ''
             description = episode.get('overview', show_src.get('overview', ''))
             
             addMenuItem({
                 'name': f"{int(season_num)}x{int(episode_num):02d} - {ep_name}",
                 'description': description,
                 'iconimage': icon,
-                'fanart': fanart,
-                'video_id': video_id,
-                'year': year,
+                'fanart': serie_fanart,
+                'tmdb_id': tmdb_id,
                 'season_num': season_num,
                 'episode_num': episode_num,
                 'imdbnumber': imdb,
                 'serie_name': serie_name,
                 'original_name': original_name,
                 'episode_title': ep_name,
-                'video_title': f"{serie_name} - {ep_name}",
-                
+                'season': int(season_num),
+                'episode': int(episode_num),
+                'tvshowtitle': serie_name,
+                'mediatype': 'episode',
                 'playable': 'true'
             }, destiny='/play_resolve_tvshows', folder=False)
         end()
@@ -985,42 +1159,68 @@ def open_episodes(param):
 @route('/play_resolve_tvshows')
 def play_resolve_tvshows(param):
     param = param or {}
-    imdb = param.get('imdbnumber', '')
-    year = param.get('year', '')
-    season_num = param.get('season_num', '')
-    episode_num = param.get('episode_num', '')
-    video_title = param.get('video_title', '')
-    iconimage = param.get('iconimage', '')
-    fanart = param.get('fanart', '')
-    description = param.get('description', '')
     serie_name = param.get('serie_name', '')
     original_name = param.get('original_name', '')
+    tmdb_id = param.get('tmdb_id', '')
+    imdb = param.get('imdb', '') or param.get('imdbnumber', '')
+    season_num = param.get('season_num', '')
+    episode_num = param.get('episode_num', '')
+    episode_title = param.get('episode_title', '')
+    iconimage = param.get('iconimage', '')
+    fanart = param.get('fanart', iconimage)
+    description = param.get('description', '')
+    from_upnext = param.get('from_upnext', 'false')
     
-    if is_auto_play_enabled():
-        success = auto_play_preferred_language(
-                None, imdb, year, season_num, episode_num, 
-                video_title, iconimage, fanart, description
-            )
-        if success:
-            return
-    
-    menus_links = sources.show_content(imdb, year, season_num, episode_num)
-    
-    if not menus_links:
-        notify(AutoTranslate.language("No sources available"))
+    if not season_num or not episode_num:
+        notify(getString(30800))
         return
     
-    items_options = [option for option, link in menus_links]
+    try:
+        season_num = int(season_num)
+        episode_num = int(episode_num)
+    except:
+        notify(getString(30801))
+        return
     
-    op2 = xbmcgui.Dialog().select(
-        AutoTranslate.language('Select a player'), 
-        items_options
-    )
+    loading_manager.show(fanart_path=fanart)
     
-    if op2 >= 0:
-        selected_url = menus_links[op2][1]
+    try:
+        stream = None
+        sub = None
         
-        try:
+        menus_links = sources.show_content(imdb, season_num, episode_num)
+        loading_manager.set_sources_found(len(menus_links))
+        
+        if not menus_links:
+            loading_manager.force_close()
+            notify(getString(30401))
+            return
+        
+        if is_auto_play_enabled():
+            loading_manager.set_phase3()
+            
+            stream, sub = try_resolve_with_fallback(
+                menus_links, 
+                season_num, 
+                episode_num, 
+                is_anime=False
+            )
+            
+            if not stream:
+                loading_manager.force_close()
+                notify(getString(30402))
+                return
+        else:
+            player_list = [(name, "") for name, url in menus_links]
+            selected_index = loading_manager.set_phase2(player_list)
+            
+            if selected_index < 0:
+                loading_manager.force_close()
+                return
+            
+            loading_manager.set_phase3()
+            selected_url = menus_links[selected_index][1]
+            
             decoded = unquote(selected_url)
             parsed = urlparse(decoded)
             qs = parse_qs(parsed.query)
@@ -1029,92 +1229,155 @@ def play_resolve_tvshows(param):
             stream, sub = sources.select_resolver_tvshow(final_url, season_num, episode_num)
             
             if not stream:
-                notify(AutoTranslate.language("Stream unavailable"))
+                loading_manager.force_close()
+                notify(getString(30402))
                 return
-            
-            stop_player()
-            
-            showtitle = video_title.split(" - ")[0] if " - " in video_title else (serie_name or video_title)
-            episode_title = video_title.split(" - ")[1] if " - " in video_title else video_title
-            
-            play_item = xbmcgui.ListItem(path=stream)
-            play_item.setArt({'thumb': iconimage, 'icon': iconimage, 'fanart': fanart})
-            play_item.setContentLookup(False)
-            
-            if KODI_MAJOR >= 20:
-                info_tag = play_item.getVideoInfoTag()
-                info_tag.setTitle(episode_title)
-                info_tag.setTvShowTitle(showtitle)
-                info_tag.setPlot(description)
-                info_tag.setMediaType('episode')
-            else:
-                info_dict = {
-                    'title': episode_title,
-                    'tvshowtitle': showtitle,
-                    'plot': description,
-                    'mediatype': 'episode'
-                }
-                if imdb:
-                    info_dict['imdbnumber'] = imdb
-                if original_name:
-                    info_dict['originaltitle'] = original_name
-                play_item.setInfo('video', info_dict)
-            
-            if sub:
-                play_item.setSubtitles([sub])
-            
-            xbmcplugin.setResolvedUrl(int(sys.argv[1]), True, play_item)
-        except:
-            notify(AutoTranslate.language('Error trying to play'))
+        
+        url = stream.split('|')[0] if '|' in stream else stream
+        headers = stream.split('|', 1)[1] if '|' in stream else ''
+        is_direct_file = url.lower().split('?')[0].endswith(('.mp4', '.mkv', '.avi', '.mov', '.webm', '.ts'))
+
+        showtitle = serie_name
+
+        play_item = xbmcgui.ListItem(path=url)
+        play_item.setArt({'thumb': iconimage, 'icon': iconimage, 'fanart': fanart})
+        play_item.setContentLookup(False)
+
+        if is_direct_file:
+            play_item.setMimeType('video/mp4')
+            if headers:
+                play_item.setPath(f"{url}|{headers}")
+        else:
+            play_item.setProperty('inputstream', 'inputstream.adaptive')
+            play_item.setProperty('inputstream.adaptive.manifest_type', 'hls')
+            if headers:
+                play_item.setProperty('inputstream.adaptive.stream_headers', headers)
+
+        if KODI_MAJOR >= 20:
+            info_tag = play_item.getVideoInfoTag()
+            info_tag.setTitle(episode_title)
+            info_tag.setTvShowTitle(showtitle)
+            info_tag.setPlot(description)
+            info_tag.setMediaType('episode')
+            info_tag.setSeason(season_num)
+            info_tag.setEpisode(episode_num)
+            if original_name:
+                info_tag.setOriginalTitle(original_name)
+            if tmdb_id:
+                info_tag.setUniqueIDs({'tmdb': tmdb_id}, 'tmdb')
+        else:
+            info_dict = {
+                'title': episode_title,
+                'tvshowtitle': showtitle,
+                'plot': description,
+                'mediatype': 'episode',
+                'season': season_num,
+                'episode': episode_num,
+            }
+            if imdb:
+                info_dict['imdbnumber'] = imdb
+            if original_name:
+                info_dict['originaltitle'] = original_name
+            if tmdb_id:
+                info_dict['uniqueid'] = {'tmdb': tmdb_id}
+            play_item.setInfo('video', info_dict)
+        
+        if sub:
+            play_item.setSubtitles([sub])
+        
+        xbmcplugin.setResolvedUrl(int(sys.argv[1]), True, play_item)
+        
+        loading_manager.close()
+        
+        playlist = xbmc.PlayList(xbmc.PLAYLIST_VIDEO)
+        current_position = playlist.getposition()
+        
+        if current_position == 0 or playlist.size() <= 1:
+            db = httpclient.ThunderDatabase()
+            all_episodes = db.get_tvshow_season_episodes(tmdb_id, season_num)
+            if all_episodes:
+                build_tvshow_playlist(
+                    tmdb_id=tmdb_id,
+                    season_num=season_num,
+                    current_episode_num=episode_num,
+                    serie_name=serie_name,
+                    original_name=original_name,
+                    all_episodes=all_episodes,
+                    imdb_id=imdb
+                )
+        
+        threading.Thread(
+            target=get_player().start_monitoring_tvshow,
+            args=(tmdb_id, season_num, episode_num),
+            daemon=True
+        ).start()
+        
+    except Exception as e:
+        loading_manager.force_close()
+        notify(getString(30304))
 
 @route('/play_resolve_animes')
 def play_resolve_animes(param):
     param = param or {}
     mal_id = param.get('mal_id', '')
-    year = param.get('year', '')
     episode_num = param.get('episode_num', '')
-    video_title = param.get('video_title', '')
     iconimage = param.get('iconimage', '')
     fanart = param.get('fanart', iconimage)
     description = param.get('description', '')
     is_anime = param.get('is_anime', 'true')
+    serie_name = param.get('serie_name', '')
+    original_name = param.get('original_name', '')
+    episode_title = param.get('episode_title', '')
+    from_upnext = param.get("from_upnext", "false")
     
     if not mal_id or not episode_num:
-        notify(AutoTranslate.language("Missing required parameters"))
+        notify(getString(30800))
         return
     
     try:
         episode_num = int(episode_num)
     except:
-        notify(AutoTranslate.language("Invalid episode number"))
+        notify(getString(30801))
         return
     
-    if is_auto_play_enabled():
-        success = auto_play_preferred_language(
-            mal_id, None, year, None, episode_num, 
-            video_title, iconimage, fanart, description, 
-            is_anime=is_anime
-        )
-        if success:
-            return
+    loading_manager.show(fanart_path=fanart)
     
-    menus_links = sources.show_content_anime(mal_id, episode_num)
-    
-    if not menus_links:
-        notify(AutoTranslate.language("No sources available"))
-        return
-    
-    items_options = [option for option, link in menus_links]
-    
-    op2 = xbmcgui.Dialog().select(
-        AutoTranslate.language('Select a player'), 
-        items_options
-    )
-    
-    if op2 >= 0:
-        selected_url = menus_links[op2][1]
+    try:
+        stream = None
+        sub = None
         
-        try:
+        menus_links = sources.show_content_anime(mal_id, episode_num)
+        loading_manager.set_sources_found(len(menus_links))
+        
+        if not menus_links:
+            loading_manager.force_close()
+            notify(getString(30401))
+            return
+        
+        if is_auto_play_enabled():
+            loading_manager.set_phase3()
+            
+            stream, sub = try_resolve_with_fallback(
+                menus_links, 
+                episode_num, 
+                is_anime=True
+            )
+            
+            if not stream:
+                loading_manager.force_close()
+                notify(getString(30402))
+                return
+        else:
+            player_list = [(name, "") for name, url in menus_links]
+            selected_index = loading_manager.set_phase2(player_list)
+            
+            if selected_index < 0:
+                loading_manager.force_close()
+                return
+            
+            loading_manager.set_phase3()
+            selected_url = menus_links[selected_index][1]
+            
             decoded = unquote(selected_url)
             parsed = urlparse(decoded)
             qs = parse_qs(parsed.query)
@@ -1123,39 +1386,73 @@ def play_resolve_animes(param):
             stream, sub = sources.select_resolver_anime(final_url, episode_num)
             
             if not stream:
-                notify(AutoTranslate.language("Stream unavailable"))
+                loading_manager.force_close()
+                notify(getString(30402))
                 return
-            
-            stop_player()
-            
-            showtitle = video_title.split(" - ")[0] if " - " in video_title else video_title
-            episode_title = video_title.split(" - ")[1] if " - " in video_title else f"{AutoTranslate.language('Episode')} {episode_num}"
-            
-            play_item = xbmcgui.ListItem(path=stream)
-            play_item.setArt({'thumb': iconimage, 'icon': iconimage, 'fanart': fanart})
-            play_item.setContentLookup(False)
-            
-            if KODI_MAJOR >= 20:
-                info_tag = play_item.getVideoInfoTag()
-                info_tag.setTitle(episode_title)
-                info_tag.setTvShowTitle(showtitle)
-                info_tag.setPlot(description)
-                info_tag.setMediaType('episode')
-            else:
-                info_dict = {
-                    'title': episode_title,
-                    'tvshowtitle': showtitle,
-                    'plot': description,
-                    'mediatype': 'episode'
-                }
-                play_item.setInfo('video', info_dict)
-            
-            if sub:
-                play_item.setSubtitles([sub])
-            
-            xbmcplugin.setResolvedUrl(int(sys.argv[1]), True, play_item)
-        except:
-            notify(AutoTranslate.language('Error trying to play'))
+        
+        stop_player()
+        
+        if not episode_title:
+            episode_title = f"Ep {episode_num}"
+        
+        play_item = xbmcgui.ListItem(path=stream)
+        play_item.setArt({'thumb': iconimage, 'icon': iconimage, 'fanart': fanart})
+        play_item.setContentLookup(False)
+        
+        if KODI_MAJOR >= 20:
+            info_tag = play_item.getVideoInfoTag()
+            info_tag.setTitle(episode_title)
+            info_tag.setTvShowTitle(serie_name)
+            info_tag.setPlot(description)
+            info_tag.setMediaType('episode')
+            info_tag.setSeason(1)
+            info_tag.setEpisode(episode_num)
+            if original_name:
+                info_tag.setOriginalTitle(original_name)
+        else:
+            info_dict = {
+                'title': episode_title,
+                'tvshowtitle': serie_name,
+                'plot': description,
+                'mediatype': 'episode',
+                'season': 1,
+                'episode': episode_num,
+            }
+            if original_name:
+                info_dict['originaltitle'] = original_name
+            play_item.setInfo('video', info_dict)
+        
+        if sub:
+            play_item.setSubtitles([sub])
+        
+        xbmcplugin.setResolvedUrl(int(sys.argv[1]), True, play_item)
+        
+        loading_manager.close()
+        
+        playlist = xbmc.PlayList(xbmc.PLAYLIST_VIDEO)
+        current_position = playlist.getposition()
+        
+        if current_position == 0 or playlist.size() <= 1:
+            db = httpclient.ThunderDatabase()
+            all_episodes = db.get_anime_all_episodes(mal_id)
+            if all_episodes:
+                build_anime_playlist(
+                    mal_id=mal_id,
+                    current_episode_num=episode_num,
+                    serie_name=serie_name,
+                    original_name=original_name,
+                    all_episodes=all_episodes
+                )
+        
+        threading.Thread(
+            target=get_player().start_monitoring_anime,
+            args=(mal_id, episode_num),
+            daemon=True
+        ).start()
+        
+    except Exception as e:
+        loading_manager.force_close()
+        notify(getString(30304))
 
 @route('/play_resolve_anime_movies')
 def play_resolve_anime_movies(param):
@@ -1166,55 +1463,75 @@ def play_resolve_anime_movies(param):
     iconimage = param.get('iconimage', '')
     fanart = param.get('fanart', iconimage)
     description = param.get('description', '')
-    is_anime = param.get('is_anime', 'true')
+    loading_manager.show(fanart_path=fanart)
 
-    if is_auto_play_enabled():
-        auto_play_preferred_language(
-            mal_id, None, year, None, None,
-            video_title, iconimage, fanart, description,
-            is_anime=is_anime
-        )
-        return
+    try:
+        menus_links = sources.movie_content_anime(mal_id)
+        loading_manager.set_sources_found(len(menus_links))
 
-    menus_links = sources.movie_content_anime(mal_id)
-    if not menus_links:
-        return
+        if not menus_links:
+            loading_manager.force_close()
+            notify(getString(30401))
+            return
 
-    items = [i[0] for i in menus_links]
-    op = xbmcgui.Dialog().select(AutoTranslate.language('Select a player'), items)
-    if op < 0:
-        return
+        if is_auto_play_enabled():
+            loading_manager.set_phase3()
+            stream, sub = try_resolve_with_fallback(
+                menus_links, is_anime=True
+            )
+            if not stream:
+                loading_manager.force_close()
+                notify(getString(30402))
+                return
+        else:
+            player_list = [(name, "") for name, url in menus_links]
+            selected_index = loading_manager.set_phase2(player_list)
 
-    url = menus_links[op][1]
-    decoded = unquote(url)
-    parsed = urlparse(decoded)
-    qs = parse_qs(parsed.query)
-    final_url = qs.get('url', [decoded])[0] or qs.get('u', [decoded])[0] or decoded
+            if selected_index < 0:
+                loading_manager.force_close()
+                return
 
-    stream, sub = sources.select_resolver_anime_movie(final_url)
-    if not stream:
-        return
+            loading_manager.set_phase3()
+            selected_url = menus_links[selected_index][1]
 
-    stop_player()
-    item = xbmcgui.ListItem(path=stream)
-    item.setArt({'thumb': iconimage, 'icon': iconimage, 'fanart': fanart})
+            decoded = unquote(selected_url)
+            parsed = urlparse(decoded)
+            qs = parse_qs(parsed.query)
+            final_url = qs.get('url', [decoded])[0] or qs.get('u', [decoded])[0] or decoded
 
-    if KODI_MAJOR >= 20:
-        tag = item.getVideoInfoTag()
-        tag.setTitle(video_title)
-        tag.setPlot(description)
-        tag.setMediaType('movie')
-        if year:
-            tag.setYear(int(year))
-    else:
-        item.setInfo('video', {
-            'title': video_title,
-            'plot': description,
-            'mediatype': 'movie',
-            'year': int(year) if year else None
-        })
+            stream, sub = sources.select_resolver_anime_movie(final_url)
 
-    if sub:
-        item.setSubtitles([sub])
+            if not stream:
+                loading_manager.force_close()
+                notify(getString(30402))
+                return
 
-    xbmcplugin.setResolvedUrl(int(sys.argv[1]), True, item)
+        stop_player()
+
+        play_item = xbmcgui.ListItem(path=stream)
+        play_item.setArt({'thumb': iconimage, 'icon': iconimage, 'fanart': fanart})
+
+        if KODI_MAJOR >= 20:
+            tag = play_item.getVideoInfoTag()
+            tag.setTitle(video_title)
+            tag.setPlot(description)
+            tag.setMediaType('movie')
+            if year:
+                tag.setYear(int(year))
+        else:
+            play_item.setInfo('video', {
+                'title': video_title,
+                'plot': description,
+                'mediatype': 'movie',
+                'year': int(year) if year else None
+            })
+
+        if sub:
+            play_item.setSubtitles([sub])
+
+        xbmcplugin.setResolvedUrl(int(sys.argv[1]), True, play_item)
+        loading_manager.close()
+
+    except Exception as e:
+        loading_manager.force_close()
+        notify(getString(30304))

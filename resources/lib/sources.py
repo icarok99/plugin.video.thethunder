@@ -8,12 +8,6 @@ except:
     pass
 
 try:
-    from resources.lib.helper import progress_six
-    progress = progress_six
-except:
-    progress = None
-
-try:
     addonId = re.search('plugin://(.+?)/', str(sys.argv[0])).group(1)
 except:
     addonId = 'plugin.video.thethunder'
@@ -85,30 +79,14 @@ def get_non_anime_scrapers():
     return [m for m in modules_import if m.__name__ in NON_ANIME_SOURCES]
 
 def search_movies(imdb, year):
-    dp = None
-    try:
-        if progress:
-            dp = progress()
-            dp.create(AutoTranslate.language('Please wait...'), AutoTranslate.language('find_source'))
-    except:
-        pass    
-    
     stream_movies = []
     non_anime_scrapers = get_non_anime_scrapers()
     
-    for n, modulo in enumerate(non_anime_scrapers):
+    for modulo in non_anime_scrapers:
         try:
-            count = n + 1
-            update = int(count / len(non_anime_scrapers) * 100) if non_anime_scrapers else 0
             result = modulo.source.search_movies(imdb, year)
             if result:
                 stream_movies.append(result)
-            
-            if dp:
-                try:
-                    dp.update(update, str(modulo.WEBSITE))
-                except:
-                    pass
         except:
             continue
     
@@ -120,39 +98,17 @@ def search_movies(imdb, year):
                     name, page = s
                     streams_final.append((name, page))
     
-    if dp:
-        try:
-            dp.close()
-        except:
-            pass
-    
     return streams_final
 
-def search_tvshows(imdb, year, season, episode):
-    dp = None
-    try:
-        if progress:
-            dp = progress()
-            dp.create(AutoTranslate.language('Please wait...'), AutoTranslate.language('find_source'))
-    except:
-        pass
-    
+def search_tvshows(imdb, season, episode):
     stream_tvshows = []
     non_anime_scrapers = get_non_anime_scrapers()
     
-    for n, modulo in enumerate(non_anime_scrapers):
+    for modulo in non_anime_scrapers:
         try:
-            count = n + 1
-            update = int(count / len(non_anime_scrapers) * 100) if non_anime_scrapers else 0
-            result = modulo.source.search_tvshows(imdb, year, season, episode)
+            result = modulo.source.search_tvshows(imdb, season, episode)
             if result:
                 stream_tvshows.append(result)
-            
-            if dp:
-                try:
-                    dp.update(update, str(modulo.WEBSITE))
-                except:
-                    pass
         except:
             continue
     
@@ -164,48 +120,24 @@ def search_tvshows(imdb, year, season, episode):
                     name, page = s
                     streams_final.append((name, page))
     
-    if dp:
-        try:
-            dp.close()
-        except:
-            pass
-    
     return streams_final
 
 def movie_content(imdb, year):
     return search_movies(imdb, year)
 
-def show_content(imdb, year, season, episode):
-    return search_tvshows(imdb, year, season, episode)
+def show_content(imdb, season, episode):
+    return search_tvshows(imdb, season, episode)
 
 def search_anime_episodes(mal_id, episode):
-    """Busca episódios de anime"""
-    dp = None
-    try:
-        if progress:
-            dp = progress()
-            dp.create(AutoTranslate.language('Please wait...'), AutoTranslate.language('find_source'))
-    except:
-        pass
-    
     stream_animes = []
     anime_scrapers = get_anime_scrapers()
     
-    for n, modulo in enumerate(anime_scrapers):
+    for modulo in anime_scrapers:
         try:
-            count = n + 1
-            update = int(count / len(anime_scrapers) * 100) if anime_scrapers else 0
-            
             if hasattr(modulo.source, 'search_animes'):
                 result = modulo.source.search_animes(mal_id, episode)
                 if result:
                     stream_animes.append(result)
-            
-            if dp:
-                try:
-                    dp.update(update, str(modulo.WEBSITE))
-                except:
-                    pass
         except:
             continue
     
@@ -215,43 +147,19 @@ def search_anime_episodes(mal_id, episode):
             for s in streams:
                 name, page = s
                 streams_final.append((name, page))
-    
-    if dp:
-        try:
-            dp.close()
-        except:
-            pass
     
     return streams_final
 
 def search_anime_movies(mal_id):
-    """Busca filmes de anime"""
-    dp = None
-    try:
-        if progress:
-            dp = progress()
-            dp.create(AutoTranslate.language('Please wait...'), AutoTranslate.language('find_source'))
-    except:
-        pass
-    
     stream_animes = []
     anime_scrapers = get_anime_scrapers()
     
-    for n, modulo in enumerate(anime_scrapers):
+    for modulo in anime_scrapers:
         try:
-            count = n + 1
-            update = int(count / len(anime_scrapers) * 100) if anime_scrapers else 0
-            
             if hasattr(modulo.source, 'search_animes'):
-                result = modulo.source.search_animes(mal_id, None)
+                result = modulo.source.search_animes(mal_id)
                 if result:
                     stream_animes.append(result)
-            
-            if dp:
-                try:
-                    dp.update(update, str(modulo.WEBSITE))
-                except:
-                    pass
         except:
             continue
     
@@ -262,31 +170,18 @@ def search_anime_movies(mal_id):
                 name, page = s
                 streams_final.append((name, page))
     
-    if dp:
-        try:
-            dp.close()
-        except:
-            pass
-    
     return streams_final
 
 def search_animes(mal_id, episode):
-    """
-    Busca animes (episódios ou filmes) baseado no mal_id.
-    Se episode é None, busca filme de anime.
-    Se episode é especificado, busca episódio de anime.
-    """
     if episode is None:
         return search_anime_movies(mal_id)
     else:
         return search_anime_episodes(mal_id, episode)
 
 def show_content_anime(mal_id, episode):
-    """Busca episódios de anime"""
     return search_anime_episodes(mal_id, episode)
 
 def movie_content_anime(mal_id):
-    """Busca filmes de anime"""
     return search_anime_movies(mal_id)
 
 def resolve_movies(url):

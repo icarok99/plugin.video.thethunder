@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+
 WEBSITE = 'HINATASOUL'
 
 import re
@@ -18,6 +19,15 @@ session.headers.update({
 })
 
 from resources.lib.resolver import Resolver
+
+try:
+    import xbmcaddon
+    addon = xbmcaddon.Addon()
+    DUBBED = addon.getLocalizedString(30200)
+    SUBTITLED = addon.getLocalizedString(30202)
+except:
+    DUBBED = 'DUBLADO'
+    SUBTITLED = 'LEGENDADO'
 
 
 class source:
@@ -464,7 +474,7 @@ class source:
             label, url = cls._get_highest_quality_link(r_ep.text, available)
             if not url:
                 continue
-            prefix = "DUBLADO" if "dublado" in c["title"].lower() else "LEGENDADO"
+            prefix = DUBBED if "dublado" in c["title"].lower() else "LEGENDADO"
             final_label = f"{label} {prefix}"
             results.append((final_label, url))
         return results

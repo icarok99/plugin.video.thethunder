@@ -11,7 +11,17 @@ from urllib.parse import quote_plus, urljoin
 from bs4 import BeautifulSoup
 import requests
 
-# Sessão requests com headers realistas
+from resources.lib.resolver import Resolver
+
+try:
+    import xbmcaddon
+    addon = xbmcaddon.Addon()
+    DUBBED = addon.getLocalizedString(30200)
+    SUBTITLED = addon.getLocalizedString(30202)
+except:
+    DUBBED = 'DUBLADO'
+    SUBTITLED = 'LEGENDADO'
+
 session = requests.Session()
 USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36'
 session.headers.update({
@@ -20,26 +30,6 @@ session.headers.update({
     'Accept': '*/*',
     'Referer': 'https://goflixy.lol/',
 })
-
-try:
-    from resources.lib.autotranslate import AutoTranslate
-    portuguese = AutoTranslate.language('Portuguese')
-    english = AutoTranslate.language('English')
-except ImportError:
-    portuguese = 'DUBLADO'
-    english = 'LEGENDADO'
-
-try:
-    from kodi_helper import myAddon
-    addonId = re.search('plugin://(.+?)/', str(sys.argv[0])).group(1)
-    addon = myAddon(addonId)
-    select = addon.select
-except ImportError:
-    local_path = os.path.dirname(os.path.realpath(__file__))
-    lib_path = local_path.replace('scrapers', '')
-    sys.path.append(lib_path)
-
-from resources.lib.resolver import Resolver
 
 
 class source:
@@ -214,15 +204,15 @@ class source:
             leg = cls._resolve_fembed(ID, "LEG")
 
             if dub:
-                out.append(("FILEMOON - DUBLADO", dub))
+                out.append((f"FILEMOON - {DUBBED}", dub))
             if leg:
-                out.append(("FILEMOON - LEGENDADO", leg))
+                out.append((f"FILEMOON - {SUBTITLED}", leg))
 
             return out
         return []
 
     @classmethod
-    def search_tvshows(cls, imdb, year, season, episode):
+    def search_tvshows(cls, imdb, season, episode):
         try:
             season = int(season)
             episode = int(episode)
@@ -256,9 +246,10 @@ class source:
             card_year = card_year_match.group(1) if card_year_match else None
 
             ratio = difflib.SequenceMatcher(None, pt.lower(), clean.lower()).ratio()
-            if ratio >= 0.82 and (not year or not card_year or abs(int(year) - int(card_year)) <= 1):
+            if ratio >= 0.82 and (not imdb_year or not card_year or abs(int(imdb_year) - int(card_year)) <= 1):
                 serie_url = urljoin("https://goflixy.lol", href)
                 break
+
         if not serie_url:
             return []
 
@@ -293,9 +284,9 @@ class source:
                 leg = cls._resolve_fembed(ID, "LEG", cvalue)
 
                 if dub:
-                    out.append(("FILEMOON - DUBLADO", dub))
+                    out.append((f"FILEMOON - {DUBBED}", dub))
                 if leg:
-                    out.append(("FILEMOON - LEGENDADO", leg))
+                    out.append((f"FILEMOON - {SUBTITLED}", leg))
 
                 return out
         return []

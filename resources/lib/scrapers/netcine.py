@@ -12,6 +12,15 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 from resources.lib.resolver import Resolver
 
+try:
+    import xbmcaddon
+    addon = xbmcaddon.Addon()
+    DUBBED = addon.getLocalizedString(30200)
+    SUBTITLED = addon.getLocalizedString(30202)
+except:
+    DUBBED = 'DUBLADO'
+    SUBTITLED = 'LEGENDADO'
+
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
 
 session = requests.Session()
@@ -36,7 +45,7 @@ ORIGINAL_BASE = "https://netcinett.lat"
 HOST = get_last_base(ORIGINAL_BASE)
 
 def clean_title(title):
-    return re.sub(r'[:\-–]', ' ', title).strip()
+    return re.sub(r'[:\-—]', ' ', title).strip()
 
 class source:
     __site_url__ = [HOST]
@@ -112,7 +121,7 @@ class source:
         return []
 
     @classmethod
-    def search_tvshows(cls, imdb, year, season, episode):
+    def search_tvshows(cls, imdb, season, episode):
         title_pt, original_title, imdb_year = cls.find_title(imdb)
         if not imdb_year:
             return []
@@ -199,8 +208,8 @@ class source:
                         src = "https:" + src
                     elif not src.startswith("http"):
                         src = urljoin(HOST, src)
-                    lang = "DUBLADO" if any(x in text for x in ["DUBLAD","DUB","ÁUDIO"]) else "LEGENDADO"
-                    links.append((WEBSITE + " • " + lang, src))
+                    lang = DUBBED if any(x in text for x in ["DUBLAD","DUB","ÁUDIO"]) else SUBTITLED
+                    links.append((f"{WEBSITE} • {lang}", src))
         except:
             pass
         return links
