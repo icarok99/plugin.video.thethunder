@@ -208,8 +208,17 @@ class UpNextTVShowService:
             next_item = playlist[current_position + 1]
             if hasattr(next_item, 'getVideoInfoTag'):
                 info_tag = next_item.getVideoInfoTag()
-                title = info_tag.getTitle() if hasattr(info_tag, 'getTitle') else ''
-                season, episode, episode_title = self._parse_episode_format(title)
+                episode_title = info_tag.getTitle() if hasattr(info_tag, 'getTitle') else ''
+                season = info_tag.getSeason() if hasattr(info_tag, 'getSeason') else 0
+                episode = info_tag.getEpisode() if hasattr(info_tag, 'getEpisode') else 0
+                # Fallback: tenta parsear o label caso getSeason/getEpisode retornem 0
+                if not season or not episode:
+                    label = next_item.getLabel()
+                    season_p, episode_p, title_p = self._parse_episode_format(label)
+                    season = season_p if season_p else season
+                    episode = episode_p if episode_p else episode
+                    if not episode_title and title_p:
+                        episode_title = title_p
                 return {
                     'serie_name': info_tag.getTVShowTitle() if hasattr(info_tag, 'getTVShowTitle') else '',
                     'original_name': info_tag.getOriginalTitle() if hasattr(info_tag, 'getOriginalTitle') else '',
@@ -464,13 +473,20 @@ class UpNextAnimeService:
             next_item = playlist[current_position + 1]
             if hasattr(next_item, 'getVideoInfoTag'):
                 info_tag = next_item.getVideoInfoTag()
-                title = info_tag.getTitle() if hasattr(info_tag, 'getTitle') else ''
-                episode, episode_title = self._parse_anime_episode_format(title)
+                episode_title = info_tag.getTitle() if hasattr(info_tag, 'getTitle') else ''
+                episode = info_tag.getEpisode() if hasattr(info_tag, 'getEpisode') else 0
+                # Fallback: tenta parsear o label caso getEpisode retorne 0
+                if not episode:
+                    label = next_item.getLabel()
+                    ep_p, title_p = self._parse_anime_episode_format(label)
+                    episode = ep_p if ep_p else 0
+                    if not episode_title and title_p:
+                        episode_title = title_p
                 return {
                     'serie_name': info_tag.getTVShowTitle() if hasattr(info_tag, 'getTVShowTitle') else '',
                     'original_name': info_tag.getOriginalTitle() if hasattr(info_tag, 'getOriginalTitle') else '',
                     'next_season': None,
-                    'next_episode': episode if episode else 0,
+                    'next_episode': episode,
                     'episode_title': episode_title,
                     'thumbnail': self.default_icon,
                     'fanart': next_item.getArt('fanart'),
