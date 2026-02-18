@@ -382,6 +382,14 @@ class UpNextTVShowService:
                 is_anime=False
             )
             dialog.doModal()
+
+            if dialog.auto_play and not dialog.cancelled:
+                try:
+                    total_time = self.player.getTotalTime()
+                    if total_time > 0:
+                        self.player.seekTime(total_time - 1)
+                except Exception:
+                    pass
             
             del dialog
                 
@@ -633,6 +641,14 @@ class UpNextAnimeService:
                 is_anime=True
             )
             dialog.doModal()
+
+            if dialog.auto_play and not dialog.cancelled:
+                try:
+                    total_time = self.player.getTotalTime()
+                    if total_time > 0:
+                        self.player.seekTime(total_time - 1)
+                except Exception:
+                    pass
             
             del dialog
                 
