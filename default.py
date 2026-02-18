@@ -944,8 +944,15 @@ def play_resolve_movies(param):
                 play_item.setPath(f"{url}|{headers}")
         else:
             play_item.setProperty('inputstream', 'inputstream.adaptive')
-            play_item.setProperty('inputstream.adaptive.manifest_type', 'hls')
+            try:
+                ia_version = xbmcaddon.Addon('inputstream.adaptive').getAddonInfo('version')
+                ia_major = int(ia_version.split('.')[0])
+            except Exception:
+                ia_major = 0
+            if ia_major < 21:
+                play_item.setProperty('inputstream.adaptive.manifest_type', 'hls')
             if headers:
+                play_item.setProperty('inputstream.adaptive.manifest_headers', headers)
                 play_item.setProperty('inputstream.adaptive.stream_headers', headers)
 
         if KODI_MAJOR >= 20:
@@ -1237,8 +1244,6 @@ def play_resolve_tvshows(param):
         headers = stream.split('|', 1)[1] if '|' in stream else ''
         is_direct_file = url.lower().split('?')[0].endswith(('.mp4', '.mkv', '.avi', '.mov', '.webm', '.ts'))
 
-        showtitle = serie_name
-
         play_item = xbmcgui.ListItem(path=url)
         play_item.setArt({'thumb': iconimage, 'icon': iconimage, 'fanart': fanart})
         play_item.setContentLookup(False)
@@ -1249,9 +1254,18 @@ def play_resolve_tvshows(param):
                 play_item.setPath(f"{url}|{headers}")
         else:
             play_item.setProperty('inputstream', 'inputstream.adaptive')
-            play_item.setProperty('inputstream.adaptive.manifest_type', 'hls')
+            try:
+                ia_version = xbmcaddon.Addon('inputstream.adaptive').getAddonInfo('version')
+                ia_major = int(ia_version.split('.')[0])
+            except Exception:
+                ia_major = 0
+            if ia_major < 21:
+                play_item.setProperty('inputstream.adaptive.manifest_type', 'hls')
             if headers:
+                play_item.setProperty('inputstream.adaptive.manifest_headers', headers)
                 play_item.setProperty('inputstream.adaptive.stream_headers', headers)
+
+        showtitle = serie_name
 
         if KODI_MAJOR >= 20:
             info_tag = play_item.getVideoInfoTag()
@@ -1510,6 +1524,7 @@ def play_resolve_anime_movies(param):
 
         play_item = xbmcgui.ListItem(path=stream)
         play_item.setArt({'thumb': iconimage, 'icon': iconimage, 'fanart': fanart})
+        play_item.setContentLookup(False)
 
         if KODI_MAJOR >= 20:
             tag = play_item.getVideoInfoTag()
