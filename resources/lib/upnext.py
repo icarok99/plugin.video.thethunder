@@ -96,7 +96,7 @@ class UpNextDialog(xbmcgui.WindowXMLDialog):
         if controlId == self.BUTTON_PLAY_NOW:
             try:
                 total_time = self.player.getTotalTime()
-                self.player.seekTime(total_time - 3)
+                self.player.seekTime(total_time - 1)
             except:
                 pass
             self.auto_play = True
@@ -118,7 +118,7 @@ class UpNextDialog(xbmcgui.WindowXMLDialog):
                 if focused_control == self.BUTTON_PLAY_NOW:
                     try:
                         total_time = self.player.getTotalTime()
-                        self.player.seekTime(total_time - 3)
+                        self.player.seekTime(total_time - 1)
                     except:
                         pass
                     self.auto_play = True
@@ -147,7 +147,7 @@ class UpNextDialog(xbmcgui.WindowXMLDialog):
         elif action_id == xbmcgui.ACTION_PLAYER_PLAY:
             try:
                 total_time = self.player.getTotalTime()
-                self.player.seekTime(total_time - 3)
+                self.player.seekTime(total_time - 1)
             except:
                 pass
             self.auto_play = True
