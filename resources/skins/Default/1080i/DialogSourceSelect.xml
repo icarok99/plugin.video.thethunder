@@ -89,7 +89,7 @@
             <posx>660</posx>
             <posy>310</posy>
             <width>600</width>
-            <height>320</height>
+            <height>400</height>
             <onup>200</onup>
             <ondown>200</ondown>
             <scrolltime>200</scrolltime>
@@ -143,7 +143,7 @@
             <posx>1268</posx>
             <posy>310</posy>
             <width>4</width>
-            <height>320</height>
+            <height>400</height>
             <orientation>vertical</orientation>
             <texturesliderbar>scrollbar_track.png</texturesliderbar>
             <textureslider>scrollbar_thumb.png</textureslider>
