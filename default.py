@@ -206,7 +206,6 @@ def build_anime_playlist(mal_id, current_episode_num, serie_name, original_name,
                 info_tag.setTvShowTitle(serie_name)
                 info_tag.setPlot(description)
                 info_tag.setMediaType('episode')
-                info_tag.setSeason(1)
                 info_tag.setEpisode(ep_num)
                 if original_name:
                     info_tag.setOriginalTitle(original_name)
@@ -216,7 +215,6 @@ def build_anime_playlist(mal_id, current_episode_num, serie_name, original_name,
                     'tvshowtitle': serie_name,
                     'plot': description,
                     'mediatype': 'episode',
-                    'season': 1,
                     'episode': ep_num,
                     'originaltitle': original_name
                 })
@@ -1091,8 +1089,6 @@ def anime_episodes(param):
                 'serie_name': anime_name,
                 'episode_title': ep_name,
                 'is_anime': is_anime,
-                'episode': int(epnum),
-                'season': 1,
                 'mediatype': 'episode',
                 'playable': 'true'
             }, destiny='/play_resolve_animes', folder=False)
@@ -1152,8 +1148,6 @@ def open_episodes(param):
                 'serie_name': serie_name,
                 'original_name': original_name,
                 'episode_title': ep_name,
-                'season': int(season_num),
-                'episode': int(episode_num),
                 'mediatype': 'episode',
                 'playable': 'true'
             }, destiny='/play_resolve_tvshows', folder=False)
