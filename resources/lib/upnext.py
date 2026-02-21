@@ -47,7 +47,7 @@ class UpNextDialog(xbmcgui.WindowXMLDialog):
             else:
                 # Para séries, mostra season e episode
                 if episode_title:
-                    next_text = '{}x{:02d} - {}'.format(next_season, next_episode, episode_title)
+                    next_text = '{}x{:02d} {}'.format(next_season, next_episode, episode_title)
                 else:
                     next_text = '{}x{:02d}'.format(next_season, next_episode)
             

@@ -130,7 +130,7 @@ def build_tvshow_playlist(tmdb_id, season_num, current_episode_num, serie_name, 
             
             plugin_url = 'plugin://plugin.video.thethunder/play_resolve_tvshows/{}'.format(urlencode(params))
             
-            title = '{}x{} {}'.format(season_num, str(ep_num).zfill(2), name) if name else '{}x{}'.format(season_num, str(ep_num).zfill(2))
+            title = name if name else '{}x{}'.format(season_num, str(ep_num).zfill(2))
             
             list_item = xbmcgui.ListItem(title)
             list_item.setArt({'thumb': img, 'icon': img, 'fanart': fanart or img})
@@ -1093,7 +1093,6 @@ def anime_episodes(param):
                 'is_anime': is_anime,
                 'episode': int(epnum),
                 'season': 1,
-                'tvshowtitle': anime_name,
                 'mediatype': 'episode',
                 'playable': 'true'
             }, destiny='/play_resolve_animes', folder=False)
@@ -1142,7 +1141,7 @@ def open_episodes(param):
             description = episode.get('overview', show_src.get('overview', ''))
             
             addMenuItem({
-                'name': f"{int(season_num)}x{int(episode_num):02d} - {ep_name}",
+                'name': f"{int(season_num)}x{int(episode_num):02d} {ep_name}",
                 'description': description,
                 'iconimage': icon,
                 'fanart': serie_fanart,
@@ -1155,7 +1154,6 @@ def open_episodes(param):
                 'episode_title': ep_name,
                 'season': int(season_num),
                 'episode': int(episode_num),
-                'tvshowtitle': serie_name,
                 'mediatype': 'episode',
                 'playable': 'true'
             }, destiny='/play_resolve_tvshows', folder=False)
