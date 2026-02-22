@@ -206,6 +206,7 @@ def build_anime_playlist(mal_id, current_episode_num, serie_name, original_name,
                 info_tag.setTvShowTitle(serie_name)
                 info_tag.setPlot(description)
                 info_tag.setMediaType('episode')
+                info_tag.setSeason(1)
                 info_tag.setEpisode(ep_num)
                 if original_name:
                     info_tag.setOriginalTitle(original_name)
@@ -215,6 +216,7 @@ def build_anime_playlist(mal_id, current_episode_num, serie_name, original_name,
                     'tvshowtitle': serie_name,
                     'plot': description,
                     'mediatype': 'episode',
+                    'season': 1,
                     'episode': ep_num,
                     'originaltitle': original_name
                 })
