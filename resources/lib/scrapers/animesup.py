@@ -248,14 +248,14 @@ class source:
     @classmethod
     def search_animes(cls, mal_id, episode):
         is_movie = episode is None
-
         if not is_movie:
             try:
                 episode = int(episode)
             except:
                 return []
 
-        r = session.get(f"https://api.jikan.moe/v4/anime/{mal_id}/full")
+        jikan_url = f"https://api.jikan.moe/v4/anime/{mal_id}/full"
+        r = session.get(jikan_url)
         if not r.ok:
             return []
 
@@ -267,14 +267,20 @@ class source:
 
         base_titles = [t for t in [title_english, title_default] + title_synonyms if t]
         search_title = title_english or title_default
-        search_url = f"https://www.animesup.info/busca?busca={quote_plus(search_title)}"
-
-        r = session.get(search_url)
+        r = session.get(f"https://www.animesup.info/busca?busca={quote_plus(search_title)}")
         if not r.ok:
             return []
-
         soup = BeautifulSoup(r.text, "html.parser")
         anchors = soup.find_all("a", href=re.compile(r"/(animes|anime-dublado)/[^/]+$"))
+
+        if not anchors and title_english and title_default and title_default != title_english:
+            r = session.get(f"https://www.animesup.info/busca?busca={quote_plus(title_default)}")
+            if r.ok:
+                soup = BeautifulSoup(r.text, "html.parser")
+                anchors = soup.find_all("a", href=re.compile(r"/(animes|anime-dublado)/[^/]+$"))
+
+        if not anchors:
+            return []
 
         candidates = []
         for a in anchors:
@@ -313,23 +319,27 @@ class source:
 
         for c in candidates:
             accept = False
+            reason = ""
 
             if base_year and c["year"] and base_year == c["year"]:
                 accept = True
+                reason = f"year={base_year}"
             elif not is_movie and expected_season and c["season"] and c["season"] == expected_season:
                 accept = True
+                reason = f"season={expected_season}"
             elif not is_movie and expected_season and c["season"] == expected_season:
                 clean_cand = c["clean_title"]
                 if any(kw in clean_cand for kw in base_keywords) and str(expected_season) in clean_cand:
                     accept = True
+                    reason = f"keyword+season"
             if not accept:
                 min_score = 0.75 if 'dublado' in c["title"].lower() else 0.55
                 if c["score"] >= min_score:
                     accept = True
+                    reason = f"score={c['score']:.3f}>={min_score}"
 
             if not accept:
                 continue
-
             if c["url"] in seen:
                 continue
             seen.add(c["url"])
@@ -338,11 +348,7 @@ class source:
             if not r_page.ok:
                 continue
 
-            ep_url = (
-                cls._get_movie_episode_url(r_page.text)
-                if is_movie
-                else cls._get_episode_page_url(c["url"], episode)
-            )
+            ep_url = cls._get_movie_episode_url(r_page.text) if is_movie else cls._get_episode_page_url(c["url"], episode)
             if not ep_url:
                 continue
 

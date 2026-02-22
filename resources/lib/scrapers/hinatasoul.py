@@ -395,22 +395,31 @@ class source:
         title_synonyms = data.get('title_synonyms') or []
         base_year = data.get('year')
         base_titles = [t for t in [title_english, title_default] + title_synonyms if t]
+
         search_title = title_english or title_default
-        search_url = f"https://www.hinatasoulbr.vip/busca?busca={quote_plus(search_title)}"
-        r = session.get(search_url)
+        r = session.get(f"https://www.hinatasoulbr.vip/busca?busca={quote_plus(search_title)}")
         if not r.ok:
             return []
         soup = BeautifulSoup(r.text, "html.parser")
-        items = soup.find_all('div', class_=re.compile(r'ultimosAnimesHomeItem'))
+        items = [i for i in soup.find_all('div', class_=re.compile(r'ultimosAnimesHomeItem'))
+                 if i.find('div', class_='ultimosAnimesHomeItemInfosNome')
+                 and i.find('a', href=True)
+                 and re.search(r"/(animes|anime-dublado)/[^/]+$", i.find('a', href=True)['href'])]
+
+        if not items and title_english and title_default and title_default != title_english:
+            r = session.get(f"https://www.hinatasoulbr.vip/busca?busca={quote_plus(title_default)}")
+            if r.ok:
+                soup = BeautifulSoup(r.text, "html.parser")
+                items = [i for i in soup.find_all('div', class_=re.compile(r'ultimosAnimesHomeItem'))
+                         if i.find('div', class_='ultimosAnimesHomeItemInfosNome')
+                         and i.find('a', href=True)
+                         and re.search(r"/(animes|anime-dublado)/[^/]+$", i.find('a', href=True)['href'])]
+
         candidates = []
         for item in items:
             name_div = item.find('div', class_='ultimosAnimesHomeItemInfosNome')
-            if not name_div:
-                continue
             raw_title = name_div.get_text(strip=True)
             a = item.find('a', href=True)
-            if not a or not re.search(r"/(animes|anime-dublado)/[^/]+$", a['href']):
-                continue
             page_url = urljoin("https://www.hinatasoulbr.vip/", a["href"])
             cand_year = cls._extract_year(raw_title)
             score = cls._similarity_score(base_titles, raw_title, base_year, cand_year)
