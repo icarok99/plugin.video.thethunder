@@ -94,6 +94,17 @@ def init_db():
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_tvshows_season ON episodes_tvshows(tmdb_id, season)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_animes_mal ON episodes_animes(mal_id)')
 
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS watched_episodes (
+                content_type TEXT NOT NULL,
+                content_id   TEXT NOT NULL,
+                season       INTEGER,
+                episode      INTEGER NOT NULL,
+                watched_at   TEXT,
+                PRIMARY KEY (content_type, content_id, season, episode)
+            )
+        ''')
+
 init_db()
 
 def get_config_ttl():
@@ -475,3 +486,37 @@ class ThunderDatabase:
                 ORDER BY episode
             ''', (str(mal_id),))
             return [dict(row) for row in cursor.fetchall()]
+
+    def mark_tvshow_watched(self, tmdb_id, season, episode):
+        now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        with get_connection() as conn:
+            conn.cursor().execute('''
+                INSERT OR REPLACE INTO watched_episodes (content_type, content_id, season, episode, watched_at)
+                VALUES ('tvshow', ?, ?, ?, ?)
+            ''', (str(tmdb_id), int(season), int(episode), now))
+
+    def mark_anime_watched(self, mal_id, episode):
+        now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        with get_connection() as conn:
+            conn.cursor().execute('''
+                INSERT OR REPLACE INTO watched_episodes (content_type, content_id, season, episode, watched_at)
+                VALUES ('anime', ?, 0, ?, ?)
+            ''', (str(mal_id), int(episode), now))
+
+    def get_watched_tvshow_in_season(self, tmdb_id, season):
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT episode FROM watched_episodes
+                WHERE content_type = 'tvshow' AND content_id = ? AND season = ?
+            ''', (str(tmdb_id), int(season)))
+            return {row[0] for row in cursor.fetchall()}
+
+    def get_watched_anime_episodes(self, mal_id):
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT episode FROM watched_episodes
+                WHERE content_type = 'anime' AND content_id = ?
+            ''', (str(mal_id),))
+            return {row[0] for row in cursor.fetchall()}

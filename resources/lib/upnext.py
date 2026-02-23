@@ -370,7 +370,11 @@ class UpNextTVShowService:
         try:
             import xbmcaddon
             addon = xbmcaddon.Addon()
-            
+
+            tmdb_id = getattr(self.player, 'tmdb_id', None)
+            season  = getattr(self.player, 'season', None)
+            episode = getattr(self.player, 'episode', None)
+
             dialog = UpNextDialog(
                 'upnext-dialog.xml',
                 addon.getAddonInfo('path'),
@@ -383,15 +387,20 @@ class UpNextTVShowService:
             dialog.doModal()
 
             if dialog.auto_play and not dialog.cancelled:
+                if tmdb_id and season is not None and episode is not None:
+                    try:
+                        self.db.mark_tvshow_watched(tmdb_id, season, episode)
+                    except Exception:
+                        pass
                 try:
                     total_time = self.player.getTotalTime()
                     if total_time > 0:
                         self.player.seekTime(total_time - 1)
                 except Exception:
                     pass
-            
+
             del dialog
-                
+
         except Exception:
             pass
     
@@ -628,7 +637,10 @@ class UpNextAnimeService:
         try:
             import xbmcaddon
             addon = xbmcaddon.Addon()
-            
+
+            mal_id  = getattr(self.player, 'mal_id', None)
+            episode = getattr(self.player, 'episode', None)
+
             dialog = UpNextDialog(
                 'upnext-dialog.xml',
                 addon.getAddonInfo('path'),
@@ -641,15 +653,20 @@ class UpNextAnimeService:
             dialog.doModal()
 
             if dialog.auto_play and not dialog.cancelled:
+                if mal_id and episode is not None:
+                    try:
+                        self.db.mark_anime_watched(mal_id, episode)
+                    except Exception:
+                        pass
                 try:
                     total_time = self.player.getTotalTime()
                     if total_time > 0:
                         self.player.seekTime(total_time - 1)
                 except Exception:
                     pass
-            
+
             del dialog
-                
+
         except Exception:
             pass
     

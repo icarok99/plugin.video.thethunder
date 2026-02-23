@@ -81,12 +81,29 @@ class ThunderPlayer(xbmc.Player):
     
     def onPlayBackEnded(self):
         with self._state_lock:
+            tmdb_id = self.tmdb_id
+            mal_id  = self.mal_id
+            season  = self.season
+            episode = self.episode
             self._monitoring = False
             self.tmdb_id = None
             self.mal_id = None
             self.season = None
             self.episode = None
-        
+
+        if tmdb_id and season is not None and episode is not None:
+            threading.Thread(
+                target=db.mark_tvshow_watched,
+                args=(tmdb_id, season, episode),
+                daemon=True
+            ).start()
+        elif mal_id and episode is not None:
+            threading.Thread(
+                target=db.mark_anime_watched,
+                args=(mal_id, episode),
+                daemon=True
+            ).start()
+
         if self.upnext_tvshow_service:
             self.upnext_tvshow_service.stop_monitoring()
         if self.upnext_anime_service:
