@@ -266,18 +266,16 @@ class source:
         base_year = data.get('year')
 
         base_titles = [t for t in [title_english, title_default] + title_synonyms if t]
-        search_title = title_english or title_default
-        r = session.get(f"https://www.animesup.info/busca?busca={quote_plus(search_title)}")
-        if not r.ok:
-            return []
-        soup = BeautifulSoup(r.text, "html.parser")
-        anchors = soup.find_all("a", href=re.compile(r"/(animes|anime-dublado)/[^/]+$"))
 
-        if not anchors and title_english and title_default and title_default != title_english:
-            r = session.get(f"https://www.animesup.info/busca?busca={quote_plus(title_default)}")
-            if r.ok:
-                soup = BeautifulSoup(r.text, "html.parser")
-                anchors = soup.find_all("a", href=re.compile(r"/(animes|anime-dublado)/[^/]+$"))
+        anchors = []
+        for search_title in [t for t in [title_english, title_default] if t]:
+            r = session.get(f"https://www.animesup.info/busca?busca={quote_plus(search_title)}")
+            if not r.ok:
+                continue
+            soup = BeautifulSoup(r.text, "html.parser")
+            anchors = soup.find_all("a", href=re.compile(r"/(animes|anime-dublado)/[^/]+$"))
+            if anchors:
+                break
 
         if not anchors:
             return []

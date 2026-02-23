@@ -396,24 +396,18 @@ class source:
         base_year = data.get('year')
         base_titles = [t for t in [title_english, title_default] + title_synonyms if t]
 
-        search_title = title_english or title_default
-        r = session.get(f"https://www.hinatasoulbr.vip/busca?busca={quote_plus(search_title)}")
-        if not r.ok:
-            return []
-        soup = BeautifulSoup(r.text, "html.parser")
-        items = [i for i in soup.find_all('div', class_=re.compile(r'ultimosAnimesHomeItem'))
-                 if i.find('div', class_='ultimosAnimesHomeItemInfosNome')
-                 and i.find('a', href=True)
-                 and re.search(r"/(animes|anime-dublado)/[^/]+$", i.find('a', href=True)['href'])]
-
-        if not items and title_english and title_default and title_default != title_english:
-            r = session.get(f"https://www.hinatasoulbr.vip/busca?busca={quote_plus(title_default)}")
-            if r.ok:
-                soup = BeautifulSoup(r.text, "html.parser")
-                items = [i for i in soup.find_all('div', class_=re.compile(r'ultimosAnimesHomeItem'))
-                         if i.find('div', class_='ultimosAnimesHomeItemInfosNome')
-                         and i.find('a', href=True)
-                         and re.search(r"/(animes|anime-dublado)/[^/]+$", i.find('a', href=True)['href'])]
+        items = []
+        for search_title in [t for t in [title_english, title_default] if t]:
+            r = session.get(f"https://www.hinatasoulbr.vip/busca?busca={quote_plus(search_title)}")
+            if not r.ok:
+                continue
+            soup = BeautifulSoup(r.text, "html.parser")
+            items = [i for i in soup.find_all('div', class_=re.compile(r'ultimosAnimesHomeItem'))
+                     if i.find('div', class_='ultimosAnimesHomeItemInfosNome')
+                     and i.find('a', href=True)
+                     and re.search(r"/(animes|anime-dublado)/[^/]+$", i.find('a', href=True)['href'])]
+            if items:
+                break
 
         candidates = []
         for item in items:
