@@ -1068,6 +1068,8 @@ def anime_episodes(param):
 
         setcontent('episodes')
         today = datetime.today().date()
+        db_instance = httpclient.ThunderDatabase()
+        watched_set = db_instance.get_watched_anime_episodes(mal_id)
         for episode in episodes:
             aired = episode.get('aired')
             if aired:
@@ -1092,7 +1094,8 @@ def anime_episodes(param):
                 'episode_title': ep_name,
                 'is_anime': is_anime,
                 'mediatype': 'episode',
-                'playable': 'true'
+                'playable': 'true',
+                'playcount': 1 if int(epnum) in watched_set else 0
             }, destiny='/play_resolve_animes', folder=False)
         end()
     except:
@@ -1121,7 +1124,10 @@ def open_episodes(param):
         serie_fanart = f"https://image.tmdb.org/t/p/original{show_src.get('backdrop_path')}" if show_src.get('backdrop_path') else ''
         
         today = datetime.now().date()
-        
+
+        db_instance = httpclient.ThunderDatabase()
+        watched_set = db_instance.get_watched_tvshow_in_season(tmdb_id, int(season_num))
+
         setcontent('episodes')
         for episode in src.get('episodes', []):
             air_date = episode.get('air_date')
@@ -1132,12 +1138,12 @@ def open_episodes(param):
                         continue
                 except:
                     pass
-            
+
             episode_num = str(episode.get('episode_number'))
             ep_name = episode.get('name', f"{serie_name} {episode_num}")
             icon = f"https://image.tmdb.org/t/p/w500{episode.get('still_path')}" if episode.get('still_path') else get_icon('series')
             description = episode.get('overview', show_src.get('overview', ''))
-            
+
             addMenuItem({
                 'name': f"{int(season_num)}x{int(episode_num):02d} {ep_name}",
                 'description': description,
@@ -1151,7 +1157,8 @@ def open_episodes(param):
                 'original_name': original_name,
                 'episode_title': ep_name,
                 'mediatype': 'episode',
-                'playable': 'true'
+                'playable': 'true',
+                'playcount': 1 if int(episode_num) in watched_set else 0
             }, destiny='/play_resolve_tvshows', folder=False)
         end()
     except:
