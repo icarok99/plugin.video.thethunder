@@ -91,18 +91,24 @@ class ThunderPlayer(xbmc.Player):
             self.season = None
             self.episode = None
 
-        if tmdb_id and season is not None and episode is not None:
-            threading.Thread(
-                target=db.mark_tvshow_watched,
-                args=(tmdb_id, season, episode),
-                daemon=True
-            ).start()
-        elif mal_id and episode is not None:
-            threading.Thread(
-                target=db.mark_anime_watched,
-                args=(mal_id, episode),
-                daemon=True
-            ).start()
+        already_marked = (
+            (self.upnext_tvshow_service and self.upnext_tvshow_service._dialog_shown) or
+            (self.upnext_anime_service and self.upnext_anime_service._dialog_shown)
+        )
+
+        if not already_marked:
+            if tmdb_id and season is not None and episode is not None:
+                threading.Thread(
+                    target=db.mark_tvshow_watched,
+                    args=(tmdb_id, season, episode),
+                    daemon=True
+                ).start()
+            elif mal_id and episode is not None:
+                threading.Thread(
+                    target=db.mark_anime_watched,
+                    args=(mal_id, episode),
+                    daemon=True
+                ).start()
 
         if self.upnext_tvshow_service:
             self.upnext_tvshow_service.stop_monitoring()

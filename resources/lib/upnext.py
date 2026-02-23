@@ -351,7 +351,7 @@ class UpNextTVShowService:
                     with self._dialog_lock:
                         if not self._dialog_shown:
                             self._dialog_shown = True
-                            
+                            self._mark_current_as_watched()
                             self._show_upnext_dialog(next_info)
                             break
                         else:
@@ -366,14 +366,22 @@ class UpNextTVShowService:
         with self._monitor_lock:
             self.monitoring = False
     
+    def _mark_current_as_watched(self):
+        tmdb_id = getattr(self.player, 'tmdb_id', None)
+        season  = getattr(self.player, 'season', None)
+        episode = getattr(self.player, 'episode', None)
+
+        if tmdb_id and season is not None and episode is not None:
+            threading.Thread(
+                target=self.db.mark_tvshow_watched,
+                args=(tmdb_id, season, episode),
+                daemon=True
+            ).start()
+
     def _show_upnext_dialog(self, next_info):
         try:
             import xbmcaddon
             addon = xbmcaddon.Addon()
-
-            tmdb_id = getattr(self.player, 'tmdb_id', None)
-            season  = getattr(self.player, 'season', None)
-            episode = getattr(self.player, 'episode', None)
 
             dialog = UpNextDialog(
                 'upnext-dialog.xml',
@@ -387,11 +395,6 @@ class UpNextTVShowService:
             dialog.doModal()
 
             if dialog.auto_play and not dialog.cancelled:
-                if tmdb_id and season is not None and episode is not None:
-                    try:
-                        self.db.mark_tvshow_watched(tmdb_id, season, episode)
-                    except Exception:
-                        pass
                 try:
                     total_time = self.player.getTotalTime()
                     if total_time > 0:
@@ -412,9 +415,6 @@ class UpNextTVShowService:
         
         if was_monitoring and self.monitor_thread and self.monitor_thread.is_alive():
             self.monitor_thread.join(timeout=3.0)
-        
-        with self._dialog_lock:
-            self._dialog_shown = False
     
     def is_monitoring(self):
         with self._monitor_lock:
@@ -618,7 +618,7 @@ class UpNextAnimeService:
                     with self._dialog_lock:
                         if not self._dialog_shown:
                             self._dialog_shown = True
-                            
+                            self._mark_current_as_watched()
                             self._show_upnext_dialog(next_info)
                             break
                         else:
@@ -633,13 +633,21 @@ class UpNextAnimeService:
         with self._monitor_lock:
             self.monitoring = False
     
+    def _mark_current_as_watched(self):
+        mal_id  = getattr(self.player, 'mal_id', None)
+        episode = getattr(self.player, 'episode', None)
+
+        if mal_id and episode is not None:
+            threading.Thread(
+                target=self.db.mark_anime_watched,
+                args=(mal_id, episode),
+                daemon=True
+            ).start()
+
     def _show_upnext_dialog(self, next_info):
         try:
             import xbmcaddon
             addon = xbmcaddon.Addon()
-
-            mal_id  = getattr(self.player, 'mal_id', None)
-            episode = getattr(self.player, 'episode', None)
 
             dialog = UpNextDialog(
                 'upnext-dialog.xml',
@@ -653,11 +661,6 @@ class UpNextAnimeService:
             dialog.doModal()
 
             if dialog.auto_play and not dialog.cancelled:
-                if mal_id and episode is not None:
-                    try:
-                        self.db.mark_anime_watched(mal_id, episode)
-                    except Exception:
-                        pass
                 try:
                     total_time = self.player.getTotalTime()
                     if total_time > 0:
@@ -678,9 +681,6 @@ class UpNextAnimeService:
         
         if was_monitoring and self.monitor_thread and self.monitor_thread.is_alive():
             self.monitor_thread.join(timeout=3.0)
-        
-        with self._dialog_lock:
-            self._dialog_shown = False
     
     def is_monitoring(self):
         with self._monitor_lock:
