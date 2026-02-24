@@ -530,7 +530,7 @@ def popular_movies(param=None):
             tmdb_id = str(movie['id'])
             
             addMenuItem({
-                'name': title,
+                'name': f"{title} ({year})" if year else title,
                 'tmdb_id': tmdb_id,
                 'year': year,
                 'iconimage': icon,
@@ -567,7 +567,7 @@ def trending_movies(param=None):
             tmdb_id = str(movie['id'])
             
             addMenuItem({
-                'name': title,
+                'name': f"{title} ({year})" if year else title,
                 'tmdb_id': tmdb_id,
                 'year': year,
                 'iconimage': icon,
@@ -604,7 +604,7 @@ def premiere_movies(param=None):
             tmdb_id = str(movie['id'])
             
             addMenuItem({
-                'name': title,
+                'name': f"{title} ({year})" if year else title,
                 'tmdb_id': tmdb_id,
                 'year': year,
                 'iconimage': icon,
@@ -639,7 +639,7 @@ def popular_tvshows(param=None):
             description = show.get('overview', '')
             original_name = show.get('original_name', '')
             addMenuItem({
-                'name': title,
+                'name': f"{title} ({year})" if year else title,
                 'tmdb_id': str(show['id']),
                 'year': year,
                 'iconimage': icon,
@@ -673,7 +673,7 @@ def trending_tvshows(param=None):
             description = show.get('overview', '')
             original_name = show.get('original_name', '')
             addMenuItem({
-                'name': title,
+                'name': f"{title} ({year})" if year else title,
                 'tmdb_id': str(show['id']),
                 'year': year,
                 'iconimage': icon,
@@ -707,7 +707,7 @@ def premiere_tvshows(param=None):
             description = show.get('overview', '')
             original_name = show.get('original_name', '')
             addMenuItem({
-                'name': title,
+                'name': f"{title} ({year})" if year else title,
                 'tmdb_id': str(show['id']),
                 'year': year,
                 'iconimage': icon,
