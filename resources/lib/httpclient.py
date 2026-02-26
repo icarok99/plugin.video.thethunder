@@ -18,14 +18,14 @@ addon = xbmcaddon.Addon()
 def getString(string_id):
     return addon.getLocalizedString(string_id)
 
-TRANSLATE   = xbmcvfs.translatePath
+TRANSLATE = xbmcvfs.translatePath
 profile_dir = TRANSLATE(addon.getAddonInfo('profile'))
-db_file     = os.path.join(profile_dir, 'media.db')
+db_file = os.path.join(profile_dir, 'media.db')
 
 if not xbmcvfs.exists(profile_dir):
     xbmcvfs.mkdirs(profile_dir)
 
-API_KEY    = '92c1507cc18d85290e7a0b96abb37316'
+API_KEY = '92c1507cc18d85290e7a0b96abb37316'
 USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36'
 
 _ANIME_PREFETCH_MIN = 10
@@ -66,7 +66,7 @@ def get_connection():
         conn.close()
 
 def init_db():
-    conn   = sqlite3.connect(db_file)
+    conn = sqlite3.connect(db_file)
     cursor = conn.cursor()
     try:
         cursor.execute('''
@@ -191,7 +191,7 @@ def get_json(url, ttl=None):
         ttl = get_config_ttl()
 
     try:
-        cache_ttl_days    = int(addon.getSetting('cache_ttl_days') or '7')
+        cache_ttl_days = int(addon.getSetting('cache_ttl_days') or '7')
         cache_ttl_seconds = cache_ttl_days * 86400 if cache_ttl_days > 0 else 0
 
         if cache_ttl_days == 0:
@@ -235,11 +235,11 @@ def save_tvshow_season_episodes(tmdb_id, season, serie_name, original_name,
     batch_data = []
     for ep_data in episodes_data:
         episode_num = int(ep_data[0])
-        title       = ep_data[1] if len(ep_data) > 1 else ''
+        title = ep_data[1] if len(ep_data) > 1 else ''
         description = ep_data[2] if len(ep_data) > 2 else ''
-        thumbnail   = ep_data[3] if len(ep_data) > 3 else ''
-        fanart      = ep_data[4] if len(ep_data) > 4 else ''
-        is_last     = 'yes' if episode_num == last_episode_num else 'no'
+        thumbnail = ep_data[3] if len(ep_data) > 3 else ''
+        fanart = ep_data[4] if len(ep_data) > 4 else ''
+        is_last = 'yes' if episode_num == last_episode_num else 'no'
         batch_data.append((
             tmdb_id, season, episode_num, title, description,
             thumbnail, fanart, serie_name, original_name, imdb_id, is_last, now, now
@@ -269,7 +269,7 @@ def process_and_save_tvshow_season(tmdb_id, season_data, imdb_id=None):
         return False
     try:
         season_number = season_data.get('season_number', 0)
-        serie_name    = season_data.get('name', '')
+        serie_name = season_data.get('name', '')
         episodes_list = season_data.get('episodes', [])
         if not episodes_list:
             return False
@@ -366,8 +366,8 @@ def tv_shows_trending_api(page=1):
 
 def tv_shows_premiere_api(page=1):
     year = get_current_date()[:4]
-    url  = f'https://api.themoviedb.org/3/discover/tv?api_key={API_KEY}&sort_by=popularity.desc&first_air_date_year={year}&page={page}&language={getString(30700)}&without_keywords=210024'
-    src  = get_json(url)
+    url = f'https://api.themoviedb.org/3/discover/tv?api_key={API_KEY}&sort_by=popularity.desc&first_air_date_year={year}&page={page}&language={getString(30700)}&without_keywords=210024'
+    src = get_json(url)
     return src.get('total_pages', 0), src.get('results', [])
 
 def open_season_api(id):
@@ -386,15 +386,6 @@ def _update_season_imdb_id(tmdb_id, season, imdb_id):
 def show_episode_api(id, season, imdb_id=None):
     cache_key = f'{id}_{season}'
 
-    if not imdb_id:
-        try:
-            serie_url  = f'https://api.themoviedb.org/3/tv/{id}?api_key={API_KEY}&append_to_response=external_ids'
-            serie_data = get_json(serie_url)
-            if serie_data:
-                imdb_id = serie_data.get('external_ids', {}).get('imdb_id', '') or None
-        except Exception:
-            pass
-
     if cache_key in _season_cache:
         if imdb_id:
             try:
@@ -403,7 +394,7 @@ def show_episode_api(id, season, imdb_id=None):
                 pass
         return _season_cache[cache_key]
 
-    url  = f'https://api.themoviedb.org/3/tv/{id}/season/{season}?api_key={API_KEY}&language={getString(30700)}'
+    url = f'https://api.themoviedb.org/3/tv/{id}/season/{season}?api_key={API_KEY}&language={getString(30700)}'
     data = get_json(url)
 
     if data and 'episodes' in data:
@@ -440,17 +431,17 @@ def open_anime_api(id):
 
 def open_anime_episodes_api(id):
     cache_url = f'https://cache.jikan.moe/anime/{id}/episodes_full'
-    cached    = get_json(cache_url)
+    cached = get_json(cache_url)
     if cached and 'episodes' in cached:
         return cached['episodes']
 
-    all_episodes  = []
-    page          = 1
+    all_episodes = []
+    page = 1
     first_request = True
 
     while True:
-        url      = f'https://api.jikan.moe/v4/anime/{id}/episodes?page={page}'
-        src      = get_json(url)
+        url = f'https://api.jikan.moe/v4/anime/{id}/episodes?page={page}'
+        src = get_json(url)
         episodes = src.get('data', [])
         if not episodes:
             break
@@ -466,11 +457,11 @@ def open_anime_episodes_api(id):
         return all_episodes
 
     try:
-        anime_info         = open_anime_api(id).get('data', {})
-        anime_name         = anime_info.get('title', '')
+        anime_info = open_anime_api(id).get('data', {})
+        anime_name = anime_info.get('title', '')
         anime_name_english = anime_info.get('title_english', '')
-        now                = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        last_ep            = max(ep.get('mal_id', 0) for ep in all_episodes)
+        now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        last_ep = max(ep.get('mal_id', 0) for ep in all_episodes)
 
         batch_data = []
         for ep in all_episodes:
@@ -515,7 +506,7 @@ def cleanhtml(raw_html):
     return re.sub(re.compile('<.*?>'), '', raw_html)
 
 def get_date():
-    src          = get_json('http://worldtimeapi.org/api/timezone/America/New_York')
+    src = get_json('http://worldtimeapi.org/api/timezone/America/New_York')
     datetime_str = src.get('datetime', '')
     if datetime_str:
         return datetime_str.split('-')[0], datetime_str.split('T')[0]
@@ -727,7 +718,7 @@ class ThunderDatabase:
             if not rows:
                 return None
             current_ep = None
-            next_ep    = None
+            next_ep = None
             for row in rows:
                 d = dict(row)
                 if d['episode'] == int(episode):
@@ -750,7 +741,7 @@ class ThunderDatabase:
             if not rows:
                 return None
             current_ep = None
-            next_ep    = None
+            next_ep = None
             for row in rows:
                 d = dict(row)
                 if d['episode'] == int(episode):

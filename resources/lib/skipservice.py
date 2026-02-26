@@ -33,20 +33,20 @@ def _str(string_id):
 
 class SkipDialog(xbmcgui.WindowXMLDialog):
 
-    BUTTON_SKIP   = 4001
+    BUTTON_SKIP = 4001
     BUTTON_CANCEL = 4002
-    PROGRESS_BAR  = 4004
-    LABEL_EP      = 4006
-    IMAGE_THUMB   = 4007
+    PROGRESS_BAR = 4004
+    LABEL_EP = 4006
+    IMAGE_THUMB = 4007
 
     def __init__(self, *args, **kwargs):
-        self.seek_to           = kwargs.get('seek_to', 0.0)
+        self.seek_to = kwargs.get('seek_to', 0.0)
         self.countdown_seconds = kwargs.get('countdown_seconds', 5)
-        self.episode_label     = kwargs.get('episode_label', '')
-        self.thumbnail         = kwargs.get('thumbnail', '')
-        self._stop_countdown   = False
+        self.episode_label = kwargs.get('episode_label', '')
+        self.thumbnail = kwargs.get('thumbnail', '')
+        self._stop_countdown = False
         self._countdown_thread = None
-        self._player           = xbmc.Player()
+        self._player = xbmc.Player()
 
     def _do_seek(self):
         try:
@@ -76,7 +76,7 @@ class SkipDialog(xbmcgui.WindowXMLDialog):
             pass
 
     def _start_countdown(self):
-        self._stop_countdown   = False
+        self._stop_countdown = False
         self._countdown_thread = threading.Thread(target=self._countdown_loop, daemon=True)
         self._countdown_thread.start()
 
@@ -128,10 +128,10 @@ class SkipTVShowService:
     def __init__(self, database):
         self.db = database
         addon = xbmcaddon.Addon()
-        self.enabled           = self._get_bool(addon, 'skip_intro_enabled', True)
-        self.auto_skip         = self._get_bool(addon, 'skip_auto_skip', False)
+        self.enabled = self._get_bool(addon, 'skip_intro_enabled', True)
+        self.auto_skip = self._get_bool(addon, 'skip_auto_skip', False)
         self.countdown_seconds = self._get_int(addon, 'skip_countdown_seconds', 5)
-        self.tolerance         = 2.0
+        self.tolerance = 2.0
 
     @staticmethod
     def _get_bool(addon, key, default):
@@ -161,8 +161,8 @@ class SkipTVShowService:
         skip_info = self._resolve_timestamps(imdb_id, season, episode)
         if skip_info:
             ep_label, thumbnail = self._resolve_episode_info(tmdb_id, season, episode)
-            skip_info['_ep_label']   = ep_label
-            skip_info['_thumbnail']  = thumbnail
+            skip_info['_ep_label'] = ep_label
+            skip_info['_thumbnail'] = thumbnail
         return skip_info or {}
 
     def prefetch_season(self, tmdb_id, season):
@@ -183,9 +183,9 @@ class SkipTVShowService:
         try:
             meta = self.db.get_tvshow_episode(tmdb_id, int(season), int(episode))
             if meta:
-                title     = meta.get('episode_title') or ''
+                title = meta.get('episode_title') or ''
                 thumbnail = meta.get('thumbnail') or ''
-                ep_label  = (
+                ep_label = (
                     '{}x{:02d} - {}'.format(int(season), int(episode), title)
                     if title
                     else '{}x{:02d}'.format(int(season), int(episode))
@@ -200,12 +200,12 @@ class SkipTVShowService:
             cached = self.db.get_tvshow_skip_timestamps(imdb_id, season, episode)
             if cached:
                 return cached
-            url      = '{}?imdb_id={}&season={}&episode={}'.format(
+            url = '{}?imdb_id={}&season={}&episode={}'.format(
                 INTRODB_URL, imdb_id, season, episode)
             response = requests.get(url, timeout=6)
             if response.status_code == 200:
                 data = response.json()
-                seg  = data.get('intro')
+                seg = data.get('intro')
                 if seg:
                     ts = {
                         'intro_start': float(seg.get('start_sec', 0)),
@@ -221,7 +221,7 @@ class SkipTVShowService:
 
     def show_dialog(self, seek_to, episode_label='', thumbnail=''):
         try:
-            addon  = xbmcaddon.Addon()
+            addon = xbmcaddon.Addon()
             dialog = SkipDialog(
                 'skip-dialog.xml',
                 addon.getAddonInfo('path'),
@@ -241,13 +241,13 @@ class SkipAnimeService:
     def __init__(self, database):
         self.db = database
         addon = xbmcaddon.Addon()
-        self.enabled           = self._get_bool(addon, 'skip_intro_enabled', True)
-        self.auto_skip         = self._get_bool(addon, 'skip_auto_skip', False)
+        self.enabled = self._get_bool(addon, 'skip_intro_enabled', True)
+        self.auto_skip = self._get_bool(addon, 'skip_auto_skip', False)
         self.countdown_seconds = self._get_int(addon, 'skip_countdown_seconds', 5)
-        self.tolerance         = 2.0
+        self.tolerance = 2.0
 
         import xbmcvfs, os
-        home_dir          = addon.getAddonInfo('path')
+        home_dir = addon.getAddonInfo('path')
         self.default_icon = xbmcvfs.translatePath(
             os.path.join(home_dir, 'resources', 'images', 'thunder.png')
         )
@@ -277,7 +277,7 @@ class SkipAnimeService:
         skip_info = self._resolve_timestamps(str(mal_id), int(episode))
         if skip_info:
             ep_label, thumbnail = self._resolve_episode_info(mal_id, episode)
-            skip_info['_ep_label']  = ep_label
+            skip_info['_ep_label'] = ep_label
             skip_info['_thumbnail'] = thumbnail
         return skip_info or {}
 
@@ -291,9 +291,9 @@ class SkipAnimeService:
         try:
             meta = self.db.get_anime_episode(str(mal_id), int(episode))
             if meta:
-                title     = meta.get('episode_title') or ''
+                title = meta.get('episode_title') or ''
                 thumbnail = self.default_icon
-                ep_label  = (
+                ep_label = (
                     'Ep {:02d} - {}'.format(int(episode), title)
                     if title
                     else 'Ep {:02d}'.format(int(episode))
@@ -308,15 +308,15 @@ class SkipAnimeService:
             cached = self.db.get_anime_skip_timestamps(mal_id, episode)
             if cached:
                 return cached
-            url      = '{}/{}/{}?types=op&episodeLength=0'.format(ANISKIP_URL, mal_id, episode)
+            url = '{}/{}/{}?types=op&episodeLength=0'.format(ANISKIP_URL, mal_id, episode)
             response = requests.get(url, timeout=6)
             if response.status_code == 200:
-                data    = response.json()
+                data = response.json()
                 results = data.get('results', [])
                 ts = {}
                 for result in results:
                     skip_type = result.get('skipType', '')
-                    interval  = result.get('interval', {})
+                    interval = result.get('interval', {})
                     if skip_type == 'op':
                         ts = {
                             'intro_start': float(interval.get('startTime', 0)),
@@ -334,7 +334,7 @@ class SkipAnimeService:
 
     def show_dialog(self, seek_to, episode_label='', thumbnail=''):
         try:
-            addon  = xbmcaddon.Addon()
+            addon = xbmcaddon.Addon()
             dialog = SkipDialog(
                 'skip-dialog.xml',
                 addon.getAddonInfo('path'),
@@ -351,10 +351,10 @@ class SkipAnimeService:
 
 MAX_WORKERS = 5
 
-_prefetched_tvshow      = set()
+_prefetched_tvshow = set()
 _prefetched_tvshow_lock = threading.Lock()
-_pftvshow_running       = set()
-_pftvshow_running_lock  = threading.Lock()
+_pftvshow_running = set()
+_pftvshow_running_lock = threading.Lock()
 
 def prefetch_tvshow_skip_timestamps(imdb_id, season, episode_count, database):
     if not imdb_id or not season:
@@ -376,14 +376,14 @@ def prefetch_tvshow_skip_timestamps(imdb_id, season, episode_count, database):
 def _fetch_tvshow_episode(imdb_id, season, ep):
     for attempt in range(3):
         try:
-            url      = '{}?imdb_id={}&season={}&episode={}'.format(INTRODB_URL, imdb_id, season, ep)
+            url = '{}?imdb_id={}&season={}&episode={}'.format(INTRODB_URL, imdb_id, season, ep)
             response = requests.get(url, timeout=8)
             if response.status_code == 429:
                 time.sleep(10 * (attempt + 1))
                 continue
             if response.status_code == 200:
                 data = response.json()
-                seg  = data.get('intro')
+                seg = data.get('intro')
                 if seg:
                     return (ep, float(seg.get('start_sec', 0)), float(seg.get('end_sec', 0)))
                 return (ep, None, None)
@@ -427,10 +427,10 @@ def _prefetch_tvshow_worker(imdb_id, season, episode_count, database):
         with _pftvshow_running_lock:
             _pftvshow_running.discard(key)
 
-_prefetched_anime      = set()
+_prefetched_anime = set()
 _prefetched_anime_lock = threading.Lock()
-_pfanime_running       = set()
-_pfanime_running_lock  = threading.Lock()
+_pfanime_running = set()
+_pfanime_running_lock = threading.Lock()
 
 def prefetch_anime_skip_timestamps(mal_id, episode_count, database):
     if not mal_id:
@@ -452,17 +452,17 @@ def prefetch_anime_skip_timestamps(mal_id, episode_count, database):
 def _fetch_anime_episode(mal_id, ep):
     for attempt in range(3):
         try:
-            url      = '{}/{}/{}?types=op&episodeLength=0'.format(ANISKIP_URL, mal_id, ep)
+            url = '{}/{}/{}?types=op&episodeLength=0'.format(ANISKIP_URL, mal_id, ep)
             response = requests.get(url, timeout=8)
             if response.status_code == 429:
                 time.sleep(10 * (attempt + 1))
                 continue
             if response.status_code == 200:
-                data    = response.json()
+                data = response.json()
                 results = data.get('results', [])
                 for result in results:
                     skip_type = result.get('skipType', '')
-                    interval  = result.get('interval', {})
+                    interval = result.get('interval', {})
                     if skip_type == 'op':
                         return (ep,
                                 float(interval.get('startTime', 0)),
@@ -481,11 +481,11 @@ def _prefetch_anime_worker(mal_id, episode_count, database):
 
         # Janela absoluta: sempre cobre episódios 1..window.
         # Não usa janela deslizante para evitar buscas ilimitadas entre sessões.
-        window     = _get_anime_prefetch_window()
+        window = _get_anime_prefetch_window()
         window_end = min(episode_count, window)
 
         candidates = list(range(1, window_end + 1))
-        pending    = [ep for ep in candidates
+        pending = [ep for ep in candidates
                       if not database.anime_skip_checked(mal_id, ep)]
         if not pending:
             return
@@ -509,8 +509,8 @@ def _prefetch_anime_worker(mal_id, episode_count, database):
             _pfanime_running.discard(key)
 
 _skip_tvshow_service = None
-_skip_anime_service  = None
-_skip_lock           = threading.Lock()
+_skip_anime_service = None
+_skip_lock = threading.Lock()
 
 def get_skip_tvshow_service(database):
     global _skip_tvshow_service

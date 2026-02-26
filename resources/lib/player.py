@@ -9,7 +9,7 @@ from resources.lib.httpclient import ThunderDatabase
 db = ThunderDatabase()
 
 _skip_tvshow = get_skip_tvshow_service(db)
-_skip_anime  = get_skip_anime_service(db)
+_skip_anime = get_skip_anime_service(db)
 
 class ThunderPlayer(xbmc.Player):
 
@@ -17,26 +17,26 @@ class ThunderPlayer(xbmc.Player):
         super(ThunderPlayer, self).__init__()
 
         self.tmdb_id = None
-        self.mal_id  = None
-        self.season  = None
+        self.mal_id = None
+        self.season = None
         self.episode = None
 
-        self._state_lock  = threading.Lock()
-        self._monitoring  = False
+        self._state_lock = threading.Lock()
+        self._monitoring = False
 
         self.upnext_tvshow_service = get_upnext_tvshow_service(self, db, _skip_tvshow)
-        self.upnext_anime_service  = get_upnext_anime_service(self, db, _skip_anime)
+        self.upnext_anime_service = get_upnext_anime_service(self, db, _skip_anime)
 
     def start_monitoring_tvshow(self, tmdb_id, season, episode):
         with self._state_lock:
-            self.tmdb_id   = tmdb_id
-            self.mal_id    = None
-            self.season    = season
-            self.episode   = episode
+            self.tmdb_id = tmdb_id
+            self.mal_id = None
+            self.season = season
+            self.episode = episode
             self._monitoring = True
 
-        monitor  = xbmc.Monitor()
-        waited   = 0
+        monitor = xbmc.Monitor()
+        waited = 0
         max_wait = 30
 
         while waited < max_wait and not monitor.abortRequested():
@@ -50,14 +50,14 @@ class ThunderPlayer(xbmc.Player):
 
     def start_monitoring_anime(self, mal_id, episode):
         with self._state_lock:
-            self.tmdb_id   = None
-            self.mal_id    = mal_id
-            self.season    = None
-            self.episode   = episode
+            self.tmdb_id = None
+            self.mal_id = mal_id
+            self.season = None
+            self.episode = episode
             self._monitoring = True
 
-        monitor  = xbmc.Monitor()
-        waited   = 0
+        monitor = xbmc.Monitor()
+        waited = 0
         max_wait = 30
 
         while waited < max_wait and not monitor.abortRequested():
@@ -72,10 +72,10 @@ class ThunderPlayer(xbmc.Player):
     def onPlayBackStopped(self):
         with self._state_lock:
             self._monitoring = False
-            self.tmdb_id     = None
-            self.mal_id      = None
-            self.season      = None
-            self.episode     = None
+            self.tmdb_id = None
+            self.mal_id = None
+            self.season = None
+            self.episode = None
 
         if self.upnext_tvshow_service:
             self.upnext_tvshow_service.stop_monitoring()
@@ -84,15 +84,15 @@ class ThunderPlayer(xbmc.Player):
 
     def onPlayBackEnded(self):
         with self._state_lock:
-            tmdb_id  = self.tmdb_id
-            mal_id   = self.mal_id
-            season   = self.season
-            episode  = self.episode
+            tmdb_id = self.tmdb_id
+            mal_id = self.mal_id
+            season = self.season
+            episode = self.episode
             self._monitoring = False
-            self.tmdb_id     = None
-            self.mal_id      = None
-            self.season      = None
-            self.episode     = None
+            self.tmdb_id = None
+            self.mal_id = None
+            self.season = None
+            self.episode = None
 
         already_marked = (
             (self.upnext_tvshow_service and self.upnext_tvshow_service._watched_marked) or
@@ -128,7 +128,7 @@ class ThunderPlayer(xbmc.Player):
             self.upnext_anime_service.stop_monitoring()
 
 _global_player = None
-_player_lock   = threading.Lock()
+_player_lock = threading.Lock()
 
 def get_player():
     global _global_player

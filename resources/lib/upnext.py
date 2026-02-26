@@ -13,28 +13,28 @@ def getString(string_id):
 
 class UpNextDialog(xbmcgui.WindowXMLDialog):
 
-    BUTTON_PLAY_NOW    = 3001
-    BUTTON_CANCEL      = 3002
+    BUTTON_PLAY_NOW = 3001
+    BUTTON_CANCEL = 3002
     LABEL_NEXT_EPISODE = 3003
-    IMAGE_THUMBNAIL    = 3004
-    PROGRESS_BAR       = 3005
+    IMAGE_THUMBNAIL = 3004
+    PROGRESS_BAR = 3005
 
     def __init__(self, *args, **kwargs):
         self.next_episode_info = kwargs.get('next_episode_info', {})
         self.countdown_seconds = kwargs.get('countdown_seconds', 10)
-        self.is_anime          = kwargs.get('is_anime', False)
-        self.auto_play         = False
-        self.cancelled         = False
-        self.countdown_thread  = None
-        self._stop_countdown   = False
-        self.player            = xbmc.Player()
+        self.is_anime = kwargs.get('is_anime', False)
+        self.auto_play = False
+        self.cancelled = False
+        self.countdown_thread = None
+        self._stop_countdown = False
+        self.player = xbmc.Player()
 
     def onInit(self):
         try:
-            next_season   = self.next_episode_info.get('next_season', 0)
-            next_episode  = self.next_episode_info.get('next_episode', 0)
+            next_season = self.next_episode_info.get('next_season', 0)
+            next_episode = self.next_episode_info.get('next_episode', 0)
             episode_title = self.next_episode_info.get('episode_title', '')
-            thumbnail     = self.next_episode_info.get('thumbnail', '')
+            thumbnail = self.next_episode_info.get('thumbnail', '')
 
             if self.is_anime:
                 next_text = ('Ep {} - {}'.format(next_episode, episode_title)
@@ -55,7 +55,7 @@ class UpNextDialog(xbmcgui.WindowXMLDialog):
             pass
 
     def _start_countdown(self):
-        self._stop_countdown  = False
+        self._stop_countdown = False
         self.countdown_thread = threading.Thread(target=self._countdown_loop, daemon=True)
         self.countdown_thread.start()
 
@@ -81,11 +81,11 @@ class UpNextDialog(xbmcgui.WindowXMLDialog):
                 self.player.seekTime(total_time - 1)
             except Exception:
                 pass
-            self.auto_play       = True
+            self.auto_play = True
             self._stop_countdown = True
             self.close()
         elif controlId == self.BUTTON_CANCEL:
-            self.cancelled       = True
+            self.cancelled = True
             self._stop_countdown = True
             self.close()
 
@@ -100,12 +100,12 @@ class UpNextDialog(xbmcgui.WindowXMLDialog):
                         self.player.seekTime(total_time - 1)
                     except Exception:
                         pass
-                    self.auto_play       = True
+                    self.auto_play = True
                     self._stop_countdown = True
                     self.close()
                     return
                 elif focused == self.BUTTON_CANCEL:
-                    self.cancelled       = True
+                    self.cancelled = True
                     self._stop_countdown = True
                     self.close()
                     return
@@ -113,7 +113,7 @@ class UpNextDialog(xbmcgui.WindowXMLDialog):
                 pass
         elif action_id in (xbmcgui.ACTION_NAV_BACK, xbmcgui.ACTION_PREVIOUS_MENU,
                            xbmcgui.ACTION_STOP):
-            self.cancelled       = True
+            self.cancelled = True
             self._stop_countdown = True
             self.close()
         elif action_id == xbmcgui.ACTION_PLAYER_PLAY:
@@ -122,36 +122,36 @@ class UpNextDialog(xbmcgui.WindowXMLDialog):
                 self.player.seekTime(total_time - 1)
             except Exception:
                 pass
-            self.auto_play       = True
+            self.auto_play = True
             self._stop_countdown = True
             self.close()
 
 class UpNextTVShowService:
 
     def __init__(self, player, database, skip_service=None):
-        self.player       = player
-        self.db           = database
+        self.player = player
+        self.db = database
         self.skip_service = skip_service
 
         import xbmcaddon
         addon = xbmcaddon.Addon()
 
-        self.enabled           = addon.getSettingBool('upnext_enabled') if hasattr(addon, 'getSettingBool') else True
+        self.enabled = addon.getSettingBool('upnext_enabled') if hasattr(addon, 'getSettingBool') else True
         self.countdown_seconds = addon.getSettingInt('upnext_countdown_seconds') if hasattr(addon, 'getSettingInt') else 10
-        self.trigger_seconds   = addon.getSettingInt('upnext_trigger_seconds') if hasattr(addon, 'getSettingInt') else 30
+        self.trigger_seconds = addon.getSettingInt('upnext_trigger_seconds') if hasattr(addon, 'getSettingInt') else 30
 
         if self.countdown_seconds == 0:
             self.countdown_seconds = 10
         if self.trigger_seconds == 0:
             self.trigger_seconds = 30
 
-        self.monitoring       = False
-        self.monitor_thread   = None
+        self.monitoring = False
+        self.monitor_thread = None
         self._stop_monitoring = False
-        self._monitor_lock    = threading.Lock()
+        self._monitor_lock = threading.Lock()
 
         self._dialog_shown = False
-        self._dialog_lock  = threading.Lock()
+        self._dialog_lock = threading.Lock()
 
         self._watched_marked = False
 
@@ -166,20 +166,20 @@ class UpNextTVShowService:
 
     def _get_next_from_playlist(self):
         try:
-            playlist         = xbmc.PlayList(xbmc.PLAYLIST_VIDEO)
+            playlist = xbmc.PlayList(xbmc.PLAYLIST_VIDEO)
             current_position = playlist.getposition()
             if current_position >= (playlist.size() - 1):
                 return None
             next_item = playlist[current_position + 1]
             if hasattr(next_item, 'getVideoInfoTag'):
-                info_tag      = next_item.getVideoInfoTag()
+                info_tag = next_item.getVideoInfoTag()
                 episode_title = info_tag.getTitle() if hasattr(info_tag, 'getTitle') else ''
-                season        = info_tag.getSeason() if hasattr(info_tag, 'getSeason') else 0
-                episode       = info_tag.getEpisode() if hasattr(info_tag, 'getEpisode') else 0
+                season = info_tag.getSeason() if hasattr(info_tag, 'getSeason') else 0
+                episode = info_tag.getEpisode() if hasattr(info_tag, 'getEpisode') else 0
                 if not season or not episode:
-                    label                      = next_item.getLabel()
+                    label = next_item.getLabel()
                     season_p, episode_p, title_p = self._parse_episode_format(label)
-                    season  = season_p  if season_p  else season
+                    season = season_p  if season_p  else season
                     episode = episode_p if episode_p else episode
                     if not episode_title and title_p:
                         episode_title = title_p
@@ -194,7 +194,7 @@ class UpNextTVShowService:
                     'description':   info_tag.getPlot() if hasattr(info_tag, 'getPlot') else '',
                 }
             else:
-                label          = next_item.getLabel()
+                label = next_item.getLabel()
                 season, episode, episode_title = self._parse_episode_format(label)
                 return {
                     'serie_name':   '',
@@ -218,13 +218,13 @@ class UpNextTVShowService:
 
         with self._monitor_lock:
             self._stop_monitoring = True
-            self.monitoring       = False
+            self.monitoring = False
 
         if self.monitor_thread and self.monitor_thread.is_alive():
             self.monitor_thread.join(timeout=3.0)
 
         next_info = None
-        playlist  = xbmc.PlayList(xbmc.PLAYLIST_VIDEO)
+        playlist = xbmc.PlayList(xbmc.PLAYLIST_VIDEO)
         if playlist.size() > 0 and playlist.getposition() < (playlist.size() - 1):
             next_info = self._get_next_from_playlist()
 
@@ -243,7 +243,7 @@ class UpNextTVShowService:
                 }
 
         with self._monitor_lock:
-            self.monitoring       = True
+            self.monitoring = True
             self._stop_monitoring = False
 
         self.monitor_thread = threading.Thread(
@@ -272,7 +272,7 @@ class UpNextTVShowService:
                 self.monitoring = False
             return
 
-        total_time    = 0
+        total_time = 0
         time_attempts = 0
         while time_attempts < 60:
             try:
@@ -293,7 +293,7 @@ class UpNextTVShowService:
                 self.monitoring = False
             return
 
-        skip_data   = {}
+        skip_data = {}
         if self.skip_service:
             skip_data = self.skip_service.load(tmdb_id, season, episode)
             threading.Thread(
@@ -302,13 +302,13 @@ class UpNextTVShowService:
                 daemon=True,
             ).start()
 
-        intro_start  = skip_data.get('intro_start')
-        intro_end    = skip_data.get('intro_end')
-        skip_shown   = False
+        intro_start = skip_data.get('intro_start')
+        intro_end = skip_data.get('intro_end')
+        skip_shown = False
 
-        watched_marked    = False
-        watched_at        = total_time * 0.9
-        safety_margin     = 30
+        watched_marked = False
+        watched_at = total_time * 0.9
+        safety_margin = 30
         start_monitoring_at = min(total_time * 0.9,
                                   total_time - self.trigger_seconds - safety_margin)
 
@@ -348,7 +348,7 @@ class UpNextTVShowService:
                 continue
 
             if not watched_marked and ct >= watched_at:
-                watched_marked       = True
+                watched_marked = True
                 self._watched_marked = True
                 threading.Thread(
                     target=self.db.mark_tvshow_watched,
@@ -372,7 +372,7 @@ class UpNextTVShowService:
     def _show_upnext_dialog(self, next_info):
         try:
             import xbmcaddon
-            addon  = xbmcaddon.Addon()
+            addon = xbmcaddon.Addon()
             dialog = UpNextDialog(
                 'upnext-dialog.xml',
                 addon.getAddonInfo('path'),
@@ -396,8 +396,8 @@ class UpNextTVShowService:
     def stop_monitoring(self):
         with self._monitor_lock:
             self._stop_monitoring = True
-            was_monitoring        = self.monitoring
-            self.monitoring       = False
+            was_monitoring = self.monitoring
+            self.monitoring = False
         if was_monitoring and self.monitor_thread and self.monitor_thread.is_alive():
             self.monitor_thread.join(timeout=3.0)
 
@@ -408,16 +408,16 @@ class UpNextTVShowService:
 class UpNextAnimeService:
 
     def __init__(self, player, database, skip_service=None):
-        self.player       = player
-        self.db           = database
+        self.player = player
+        self.db = database
         self.skip_service = skip_service
 
         import xbmcaddon
         addon = xbmcaddon.Addon()
 
-        self.enabled           = addon.getSettingBool('upnext_enabled') if hasattr(addon, 'getSettingBool') else True
+        self.enabled = addon.getSettingBool('upnext_enabled') if hasattr(addon, 'getSettingBool') else True
         self.countdown_seconds = addon.getSettingInt('upnext_countdown_seconds') if hasattr(addon, 'getSettingInt') else 10
-        self.trigger_seconds   = addon.getSettingInt('upnext_trigger_seconds') if hasattr(addon, 'getSettingInt') else 30
+        self.trigger_seconds = addon.getSettingInt('upnext_trigger_seconds') if hasattr(addon, 'getSettingInt') else 30
 
         if self.countdown_seconds == 0:
             self.countdown_seconds = 10
@@ -425,18 +425,18 @@ class UpNextAnimeService:
             self.trigger_seconds = 30
 
         import xbmcvfs, os
-        home_dir         = addon.getAddonInfo('path')
+        home_dir = addon.getAddonInfo('path')
         self.default_icon = xbmcvfs.translatePath(
             os.path.join(home_dir, 'resources', 'images', 'thunder.png')
         )
 
-        self.monitoring       = False
-        self.monitor_thread   = None
+        self.monitoring = False
+        self.monitor_thread = None
         self._stop_monitoring = False
-        self._monitor_lock    = threading.Lock()
+        self._monitor_lock = threading.Lock()
 
         self._dialog_shown = False
-        self._dialog_lock  = threading.Lock()
+        self._dialog_lock = threading.Lock()
 
         self._watched_marked = False
 
@@ -451,19 +451,19 @@ class UpNextAnimeService:
 
     def _get_next_from_playlist(self):
         try:
-            playlist         = xbmc.PlayList(xbmc.PLAYLIST_VIDEO)
+            playlist = xbmc.PlayList(xbmc.PLAYLIST_VIDEO)
             current_position = playlist.getposition()
             if current_position >= (playlist.size() - 1):
                 return None
             next_item = playlist[current_position + 1]
             if hasattr(next_item, 'getVideoInfoTag'):
-                info_tag      = next_item.getVideoInfoTag()
+                info_tag = next_item.getVideoInfoTag()
                 episode_title = info_tag.getTitle() if hasattr(info_tag, 'getTitle') else ''
-                episode       = info_tag.getEpisode() if hasattr(info_tag, 'getEpisode') else 0
+                episode = info_tag.getEpisode() if hasattr(info_tag, 'getEpisode') else 0
                 if not episode:
-                    label         = next_item.getLabel()
+                    label = next_item.getLabel()
                     ep_p, title_p = self._parse_anime_episode_format(label)
-                    episode       = ep_p if ep_p else 0
+                    episode = ep_p if ep_p else 0
                     if not episode_title and title_p:
                         episode_title = title_p
                 return {
@@ -477,7 +477,7 @@ class UpNextAnimeService:
                     'description':   info_tag.getPlot() if hasattr(info_tag, 'getPlot') else '',
                 }
             else:
-                label   = next_item.getLabel()
+                label = next_item.getLabel()
                 episode, episode_title = self._parse_anime_episode_format(label)
                 return {
                     'serie_name':   '',
@@ -501,13 +501,13 @@ class UpNextAnimeService:
 
         with self._monitor_lock:
             self._stop_monitoring = True
-            self.monitoring       = False
+            self.monitoring = False
 
         if self.monitor_thread and self.monitor_thread.is_alive():
             self.monitor_thread.join(timeout=3.0)
 
         next_info = None
-        playlist  = xbmc.PlayList(xbmc.PLAYLIST_VIDEO)
+        playlist = xbmc.PlayList(xbmc.PLAYLIST_VIDEO)
         if playlist.size() > 0 and playlist.getposition() < (playlist.size() - 1):
             next_info = self._get_next_from_playlist()
 
@@ -526,7 +526,7 @@ class UpNextAnimeService:
                 }
 
         with self._monitor_lock:
-            self.monitoring       = True
+            self.monitoring = True
             self._stop_monitoring = False
 
         self.monitor_thread = threading.Thread(
@@ -555,7 +555,7 @@ class UpNextAnimeService:
                 self.monitoring = False
             return
 
-        total_time    = 0
+        total_time = 0
         time_attempts = 0
         while time_attempts < 60:
             try:
@@ -589,12 +589,12 @@ class UpNextAnimeService:
                 ).start()
 
         intro_start = skip_data.get('intro_start')
-        intro_end   = skip_data.get('intro_end')
-        skip_shown  = False
+        intro_end = skip_data.get('intro_end')
+        skip_shown = False
 
-        watched_marked      = False
-        watched_at          = total_time * 0.9
-        safety_margin       = 30
+        watched_marked = False
+        watched_at = total_time * 0.9
+        safety_margin = 30
         start_monitoring_at = min(total_time * 0.9,
                                   total_time - self.trigger_seconds - safety_margin)
 
@@ -634,7 +634,7 @@ class UpNextAnimeService:
                 continue
 
             if not watched_marked and ct >= watched_at:
-                watched_marked       = True
+                watched_marked = True
                 self._watched_marked = True
                 threading.Thread(
                     target=self.db.mark_anime_watched,
@@ -658,7 +658,7 @@ class UpNextAnimeService:
     def _show_upnext_dialog(self, next_info):
         try:
             import xbmcaddon
-            addon  = xbmcaddon.Addon()
+            addon = xbmcaddon.Addon()
             dialog = UpNextDialog(
                 'upnext-dialog.xml',
                 addon.getAddonInfo('path'),
@@ -682,8 +682,8 @@ class UpNextAnimeService:
     def stop_monitoring(self):
         with self._monitor_lock:
             self._stop_monitoring = True
-            was_monitoring        = self.monitoring
-            self.monitoring       = False
+            was_monitoring = self.monitoring
+            self.monitoring = False
         if was_monitoring and self.monitor_thread and self.monitor_thread.is_alive():
             self.monitor_thread.join(timeout=3.0)
 
@@ -692,8 +692,8 @@ class UpNextAnimeService:
             return self.monitoring
 
 _upnext_tvshow_service = None
-_upnext_anime_service  = None
-_upnext_lock           = threading.Lock()
+_upnext_anime_service = None
+_upnext_lock = threading.Lock()
 
 def get_upnext_tvshow_service(player, database, skip_service=None):
     global _upnext_tvshow_service
