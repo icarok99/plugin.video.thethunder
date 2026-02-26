@@ -12,7 +12,7 @@
         <setting id="source_goflix" type="bool" label="31102" default="false"/>
         <setting id="source_netcine" type="bool" label="31103" default="true"/>
         <setting id="source_overflix" type="bool" label="31104" default="false"/>
-        
+
         <setting label="31010" type="lsep" />
         <setting id="source_animesup" type="bool" label="31105" default="true"/>
         <setting id="source_animesdigital" type="bool" label="31106" default="false"/>
@@ -24,7 +24,14 @@
         <setting id="upnext_trigger_seconds" type="number" label="32102" default="30" />
         <setting id="upnext_countdown_seconds" type="number" label="32103" default="10" />
     </category>
-    
+
+    <category label="32200">
+        <setting id="skip_intro_enabled" type="bool" label="32201" default="true" />
+        <setting id="skip_auto_skip" type="bool" label="32203" default="false" />
+        <setting id="skip_countdown_seconds" type="number" label="32204" default="5" />
+        <setting id="anime_skip_prefetch_limit" type="slider" label="32205" default="10" range="10,1,20" option="int" />
+    </category>
+
     <category label="31004">
         <setting id="clear_cache" type="action" label="31005" action="RunScript(special://home/addons/plugin.video.thethunder/resources/lib/cache_manager.py,clear_cache)" />
         <setting id="show_cache" type="action" label="31006" action="RunScript(special://home/addons/plugin.video.thethunder/resources/lib/cache_manager.py,show_cache)" />
@@ -32,7 +39,7 @@
     </category>
 
     <category label="31011">
-        <setting id="update_resolveurl" type="action" label="31012" 
+        <setting id="update_resolveurl" type="action" label="31012"
                  action="RunScript(special://home/addons/plugin.video.thethunder/resources/lib/resolveurl.py,update)" />
     </category>
 </settings>
