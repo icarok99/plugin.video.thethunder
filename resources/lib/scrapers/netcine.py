@@ -109,7 +109,9 @@ class source:
                         continue
                     page_title = item.select_one("h2").get_text(strip=True)
                     year_span = item.select_one("span.year")
-                    page_year = year_span.get_text(strip=True) if year_span else ""
+                    page_year_raw = year_span.get_text(strip=True) if year_span else ""
+                    page_year_match = re.search(r'\d{4}', page_year_raw)
+                    page_year = page_year_match.group(0) if page_year_match else page_year_raw
                     if page_year != imdb_year:
                         continue
                     clean_page = re.sub(r'(?i)\s*(dublado|legendado|hd|4k|1080p|720p|cam|ts).*', '', page_title).strip()
@@ -149,7 +151,9 @@ class source:
                     href = urljoin(HOST, a["href"])
                     page_title = item.select_one("h2").get_text(strip=True)
                     year_span = item.select_one("span.year")
-                    page_year = year_span.get_text(strip=True) if year_span else ""
+                    page_year_raw = year_span.get_text(strip=True) if year_span else ""
+                    page_year_match = re.search(r'\d{4}', page_year_raw)
+                    page_year = page_year_match.group(0) if page_year_match else page_year_raw
                     if page_year != imdb_year:
                         continue
                     clean_page = re.sub(r'(?i)\s*(dublado|legendado|hd|4k|1080p|720p|cam|ts).*', '', page_title).strip()
