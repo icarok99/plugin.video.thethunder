@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import datetime
 
 years_tvshows = [{'name': '2024', 'id': 2024}]
