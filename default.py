@@ -15,7 +15,6 @@ from resources.lib import httpclient, sources
 from resources.lib.player import get_player
 from urllib.parse import urlparse, unquote, parse_qs
 
-
 _addon = xbmcaddon.Addon()
 
 def getString(string_id):
@@ -90,7 +89,6 @@ def is_auto_play_enabled():
         return xbmcaddon.Addon().getSetting("auto_play_enabled") == "true"
     except:
         return False
-
 
 def build_tvshow_playlist(tmdb_id, season_num, current_episode_num, serie_name, original_name, all_episodes, imdb_id):
     if not all_episodes or not isinstance(all_episodes, list):
@@ -1070,6 +1068,19 @@ def anime_episodes(param):
         today = datetime.today().date()
         db_instance = httpclient.ThunderDatabase()
         watched_set = db_instance.get_watched_anime_episodes(mal_id)
+
+        try:
+            from resources.lib.skipservice import prefetch_anime_skip_timestamps
+            episode_count = len([e for e in episodes if e.get('mal_id')])
+            if episode_count > 0:
+                threading.Thread(
+                    target=prefetch_anime_skip_timestamps,
+                    args=(str(mal_id), episode_count, db_instance),
+                    daemon=True
+                ).start()
+        except Exception:
+            pass
+
         for episode in episodes:
             aired = episode.get('aired')
             if aired:
@@ -1118,7 +1129,7 @@ def open_episodes(param):
         if not imdb:
             imdb = show_src.get('external_ids', {}).get('imdb_id', '')
         
-        src = httpclient.show_episode_api(tmdb_id, season_num)
+        src = httpclient.show_episode_api(tmdb_id, season_num, imdb_id=imdb)
         
         iconimage = f"https://image.tmdb.org/t/p/w500{show_src.get('poster_path')}" if show_src.get('poster_path') else get_icon('series')
         serie_fanart = f"https://image.tmdb.org/t/p/original{show_src.get('backdrop_path')}" if show_src.get('backdrop_path') else ''
@@ -1127,6 +1138,18 @@ def open_episodes(param):
 
         db_instance = httpclient.ThunderDatabase()
         watched_set = db_instance.get_watched_tvshow_in_season(tmdb_id, int(season_num))
+
+        try:
+            from resources.lib.skipservice import prefetch_tvshow_skip_timestamps
+            episode_count = len(src.get('episodes', []))
+            if imdb and episode_count > 0:
+                threading.Thread(
+                    target=prefetch_tvshow_skip_timestamps,
+                    args=(imdb, int(season_num), episode_count, db_instance),
+                    daemon=True
+                ).start()
+        except Exception:
+            pass
 
         setcontent('episodes')
         for episode in src.get('episodes', []):
