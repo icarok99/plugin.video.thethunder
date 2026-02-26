@@ -29,8 +29,20 @@ USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTM
 
 _season_cache = {}
 
+_db_initialized = False
+
+def _check_expiry_once():
+    from resources.lib.cache_manager import check_auto_expiry
+    check_auto_expiry()
+
+_check_expiry_once()
+
 @contextmanager
 def get_connection():
+    global _db_initialized
+    if not _db_initialized:
+        _db_initialized = True
+        init_db()
     conn = sqlite3.connect(db_file)
     conn.row_factory = sqlite3.Row
     try:
@@ -43,8 +55,9 @@ def get_connection():
         conn.close()
 
 def init_db():
-    with get_connection() as conn:
-        cursor = conn.cursor()
+    conn = sqlite3.connect(db_file)
+    cursor = conn.cursor()
+    try:
 
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS cache (
@@ -105,7 +118,13 @@ def init_db():
             )
         ''')
 
-init_db()
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
 
 def get_config_ttl():
     try:
@@ -140,9 +159,9 @@ def get_json(url, ttl=None):
         cache_ttl_seconds = cache_ttl_days * 86400 if cache_ttl_days > 0 else 0
 
         if cache_ttl_days == 0:
-            with get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute('DELETE FROM cache')
+            from resources.lib.cache_manager import clear_cache
+            clear_cache()
+            _db_initialized = False
         elif cache_ttl_days > 0:
             clean_expired_cache(cache_ttl_seconds)
     except:

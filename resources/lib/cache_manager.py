@@ -4,6 +4,7 @@
 import sys
 import os
 import time
+from datetime import datetime
 import sqlite3
 
 try:
@@ -62,7 +63,10 @@ def get_cache_ttl_days():
     try:
         if is_kodi():
             addon = xbmcaddon.Addon("plugin.video.thethunder")
-            days = int(addon.getSetting('cache_ttl_days') or '7')
+            val = addon.getSetting('cache_ttl_days')
+            if val == '':
+                return 7
+            days = int(val)
             return days if days >= 0 else 7
     except:
         pass
@@ -152,4 +156,21 @@ if __name__ == "__main__":
         elif arg in ("show_cache", "--show-cache", "-s"):
             show_cache()
     else:
+        clear_cache()
+
+def check_auto_expiry():
+    db_path = get_db_path()
+
+    if not os.path.exists(db_path):
+        return
+
+    ttl_days = get_cache_ttl_days()
+
+    try:
+        last_modified = datetime.fromtimestamp(os.path.getmtime(db_path))
+    except OSError:
+        return
+
+    from datetime import timedelta
+    if ttl_days == 0 or datetime.now() - last_modified >= timedelta(days=ttl_days):
         clear_cache()
