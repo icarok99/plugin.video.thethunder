@@ -5,6 +5,7 @@ import json
 import time
 import hashlib
 import sqlite3
+import threading
 import xbmcvfs
 import xbmcaddon
 from datetime import datetime
@@ -28,19 +29,12 @@ if not xbmcvfs.exists(profile_dir):
 API_KEY = '92c1507cc18d85290e7a0b96abb37316'
 USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36'
 
-_ANIME_PREFETCH_MIN = 10
-_ANIME_PREFETCH_MAX = 20
-
-def get_anime_skip_prefetch_window():
-    try:
-        value = int(addon.getSetting('anime_skip_prefetch_limit') or str(_ANIME_PREFETCH_MIN))
-        return max(_ANIME_PREFETCH_MIN, min(_ANIME_PREFETCH_MAX, value))
-    except Exception:
-        return _ANIME_PREFETCH_MIN
 
 _season_cache = {}
+_season_cache_lock = threading.Lock()
 
 _db_initialized = False
+_db_init_lock = threading.Lock()
 
 def _check_expiry_once():
     from resources.lib.cache_manager import check_auto_expiry
@@ -51,9 +45,10 @@ _check_expiry_once()
 @contextmanager
 def get_connection():
     global _db_initialized
-    if not _db_initialized:
-        _db_initialized = True
-        init_db()
+    with _db_init_lock:
+        if not _db_initialized:
+            _db_initialized = True
+            init_db()
     conn = sqlite3.connect(db_file)
     conn.row_factory = sqlite3.Row
     try:
@@ -386,13 +381,19 @@ def _update_season_imdb_id(tmdb_id, season, imdb_id):
 def show_episode_api(id, season, imdb_id=None):
     cache_key = f'{id}_{season}'
 
-    if cache_key in _season_cache:
+    with _season_cache_lock:
+        if cache_key in _season_cache:
+            cached = _season_cache[cache_key]
+        else:
+            cached = None
+
+    if cached is not None:
         if imdb_id:
             try:
                 _update_season_imdb_id(str(id), int(season), imdb_id)
             except Exception:
                 pass
-        return _season_cache[cache_key]
+        return cached
 
     url = f'https://api.themoviedb.org/3/tv/{id}/season/{season}?api_key={API_KEY}&language={getString(30700)}'
     data = get_json(url)
@@ -403,7 +404,8 @@ def show_episode_api(id, season, imdb_id=None):
         except Exception:
             pass
 
-    _season_cache[cache_key] = data
+    with _season_cache_lock:
+        _season_cache[cache_key] = data
     return data
 
 def find_tv_show_api(imdb):
@@ -631,7 +633,7 @@ class ThunderDatabase:
             return {'intro_start': intro_start, 'intro_end': intro_end, 'source': source}
 
     def save_tvshow_skip_timestamps(self, imdb_id, season, episode,
-                                    intro_start=None, intro_end=None, source='api'):
+                                    intro_start=None, intro_end=None, source='introhater'):
         now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         with get_connection() as conn:
             conn.cursor().execute('''
@@ -646,12 +648,12 @@ class ThunderDatabase:
                     updated_at  = excluded.updated_at
             ''', (imdb_id, int(season), int(episode), intro_start, intro_end, source, now))
 
-    def tvshow_skip_checked(self, imdb_id, season, episode):
+    def tvshow_imdb_fetched(self, imdb_id):
         with get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                'SELECT 1 FROM skip_timestamps_tvshow WHERE imdb_id = ? AND season = ? AND episode = ?',
-                (imdb_id, int(season), int(episode))
+                'SELECT 1 FROM skip_timestamps_tvshow WHERE imdb_id = ? LIMIT 1',
+                (imdb_id,)
             )
             return cursor.fetchone() is not None
 
@@ -686,6 +688,15 @@ class ThunderDatabase:
                     source      = excluded.source,
                     updated_at  = excluded.updated_at
             ''', (str(mal_id), int(episode), intro_start, intro_end, source, now))
+
+    def anime_mal_fetched(self, mal_id):
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                'SELECT 1 FROM skip_timestamps_anime WHERE mal_id = ? LIMIT 1',
+                (str(mal_id),)
+            )
+            return cursor.fetchone() is not None
 
     def anime_skip_checked(self, mal_id, episode):
         with get_connection() as conn:

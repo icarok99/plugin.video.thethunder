@@ -45,8 +45,11 @@ class ThunderPlayer(xbmc.Player):
             monitor.waitForAbort(0.5)
             waited += 0.5
 
-        if self.isPlayingVideo() and self._monitoring:
-            self.upnext_tvshow_service.start_monitoring(self.tmdb_id, self.season, self.episode)
+        if self.isPlayingVideo():
+            with self._state_lock:
+                monitoring = self._monitoring
+            if monitoring:
+                self.upnext_tvshow_service.start_monitoring(self.tmdb_id, self.season, self.episode)
 
     def start_monitoring_anime(self, mal_id, episode):
         with self._state_lock:
@@ -66,8 +69,11 @@ class ThunderPlayer(xbmc.Player):
             monitor.waitForAbort(0.5)
             waited += 0.5
 
-        if self.isPlayingVideo() and self._monitoring:
-            self.upnext_anime_service.start_monitoring(self.mal_id, self.episode)
+        if self.isPlayingVideo():
+            with self._state_lock:
+                monitoring = self._monitoring
+            if monitoring:
+                self.upnext_anime_service.start_monitoring(self.mal_id, self.episode)
 
     def onPlayBackStopped(self):
         with self._state_lock:
