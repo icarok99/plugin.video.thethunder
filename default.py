@@ -1069,19 +1069,6 @@ def anime_episodes(param):
         db_instance = httpclient.ThunderDatabase()
         watched_set = db_instance.get_watched_anime_episodes(mal_id)
 
-        try:
-            from resources.lib.skipservice import prefetch_anime_skip_timestamps
-            episode_count = len([e for e in episodes if e.get('mal_id')])
-            if episode_count > 0:
-                threading.Thread(
-                    target=prefetch_anime_skip_timestamps,
-                    args=(str(mal_id), db_instance),
-                    kwargs={'anime_name': anime_name},
-                    daemon=True
-                ).start()
-        except Exception:
-            pass
-
         for episode in episodes:
             aired = episode.get('aired')
             if aired:
