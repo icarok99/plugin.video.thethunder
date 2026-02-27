@@ -29,7 +29,6 @@ if not xbmcvfs.exists(profile_dir):
 API_KEY = '92c1507cc18d85290e7a0b96abb37316'
 USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36'
 
-
 _season_cache = {}
 _season_cache_lock = threading.Lock()
 
@@ -133,22 +132,9 @@ def init_db():
             )
         ''')
 
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS skip_timestamps_anime (
-                mal_id      TEXT    NOT NULL,
-                episode     INTEGER NOT NULL,
-                intro_start REAL,
-                intro_end   REAL,
-                source      TEXT    DEFAULT 'api',
-                updated_at  TEXT,
-                PRIMARY KEY (mal_id, episode)
-            )
-        ''')
-
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_tvshows_season   ON episodes_tvshows(tmdb_id, season)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_animes_mal       ON episodes_animes(mal_id)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_skip_tvshow      ON skip_timestamps_tvshow(imdb_id, season)')
-        cursor.execute('CREATE INDEX IF NOT EXISTS idx_skip_anime       ON skip_timestamps_anime(mal_id)')
 
         conn.commit()
     except Exception:
@@ -656,66 +642,6 @@ class ThunderDatabase:
                 (imdb_id,)
             )
             return cursor.fetchone() is not None
-
-    def get_anime_skip_timestamps(self, mal_id, episode):
-        with get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute('''
-                SELECT intro_start, intro_end, source
-                FROM skip_timestamps_anime
-                WHERE mal_id = ? AND episode = ?
-            ''', (str(mal_id), int(episode)))
-            row = cursor.fetchone()
-            if not row:
-                return None
-            intro_start, intro_end, source = row
-            if intro_start is None or intro_end is None:
-                return None
-            return {'intro_start': intro_start, 'intro_end': intro_end, 'source': source}
-
-    def save_anime_skip_timestamps(self, mal_id, episode,
-                                   intro_start=None, intro_end=None, source='api'):
-        now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        with get_connection() as conn:
-            conn.cursor().execute('''
-                INSERT INTO skip_timestamps_anime
-                    (mal_id, episode, intro_start, intro_end, source, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?)
-                ON CONFLICT(mal_id, episode)
-                DO UPDATE SET
-                    intro_start = COALESCE(excluded.intro_start, intro_start),
-                    intro_end   = COALESCE(excluded.intro_end,   intro_end),
-                    source      = excluded.source,
-                    updated_at  = excluded.updated_at
-            ''', (str(mal_id), int(episode), intro_start, intro_end, source, now))
-
-    def anime_mal_fetched(self, mal_id):
-        with get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                'SELECT 1 FROM skip_timestamps_anime WHERE mal_id = ? LIMIT 1',
-                (str(mal_id),)
-            )
-            return cursor.fetchone() is not None
-
-    def anime_skip_checked(self, mal_id, episode):
-        with get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                'SELECT 1 FROM skip_timestamps_anime WHERE mal_id = ? AND episode = ?',
-                (str(mal_id), int(episode))
-            )
-            return cursor.fetchone() is not None
-
-    def get_anime_skip_checked_count(self, mal_id):
-        with get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                'SELECT MAX(episode) FROM skip_timestamps_anime WHERE mal_id = ?',
-                (str(mal_id),)
-            )
-            row = cursor.fetchone()
-            return row[0] if row and row[0] else 0
 
     def get_next_tvshow_episode_metadata(self, tmdb_id, season, episode):
         with get_connection() as conn:

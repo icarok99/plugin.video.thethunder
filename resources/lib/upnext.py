@@ -579,14 +579,6 @@ class UpNextAnimeService:
         skip_data = {}
         if self.skip_service:
             skip_data = self.skip_service.load(mal_id, episode)
-            all_eps = self.db.get_anime_all_episodes(mal_id)
-            ep_count = len(all_eps) if all_eps else 0
-            if ep_count > 0:
-                threading.Thread(
-                    target=self.skip_service.prefetch_anime,
-                    args=(mal_id, ep_count),
-                    daemon=True,
-                ).start()
 
         intro_start = skip_data.get('intro_start')
         intro_end = skip_data.get('intro_end')
