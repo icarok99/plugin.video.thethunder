@@ -102,7 +102,7 @@ class ThunderPlayer(xbmc.Player):
 
         already_marked = (
             (self.upnext_tvshow_service and self.upnext_tvshow_service._watched_marked) or
-            (self.upnext_anime_service  and self.upnext_anime_service._watched_marked)
+            (self.upnext_anime_service and self.upnext_anime_service._watched_marked)
         )
 
         if not already_marked:
