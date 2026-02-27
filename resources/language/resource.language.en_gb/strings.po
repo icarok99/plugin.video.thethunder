@@ -357,7 +357,3 @@ msgstr ""
 msgctxt "#32204"
 msgid "Countdown (seconds)"
 msgstr ""
-
-msgctxt "#32205"
-msgid "Anime skip prefetch limit"
-msgstr ""
