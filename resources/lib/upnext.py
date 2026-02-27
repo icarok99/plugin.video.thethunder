@@ -179,31 +179,31 @@ class UpNextTVShowService:
                 if not season or not episode:
                     label = next_item.getLabel()
                     season_p, episode_p, title_p = self._parse_episode_format(label)
-                    season = season_p  if season_p  else season
+                    season = season_p if season_p else season
                     episode = episode_p if episode_p else episode
                     if not episode_title and title_p:
                         episode_title = title_p
                 return {
-                    'serie_name':    info_tag.getTVShowTitle() if hasattr(info_tag, 'getTVShowTitle') else '',
+                    'serie_name': info_tag.getTVShowTitle() if hasattr(info_tag, 'getTVShowTitle') else '',
                     'original_name': info_tag.getOriginalTitle() if hasattr(info_tag, 'getOriginalTitle') else '',
-                    'next_season':   season  if season  else 0,
-                    'next_episode':  episode if episode else 0,
+                    'next_season': season if season else 0,
+                    'next_episode': episode if episode else 0,
                     'episode_title': episode_title,
-                    'thumbnail':     next_item.getArt('thumb'),
-                    'fanart':        next_item.getArt('fanart'),
-                    'description':   info_tag.getPlot() if hasattr(info_tag, 'getPlot') else '',
+                    'thumbnail': next_item.getArt('thumb'),
+                    'fanart': next_item.getArt('fanart'),
+                    'description': info_tag.getPlot() if hasattr(info_tag, 'getPlot') else '',
                 }
             else:
                 label = next_item.getLabel()
                 season, episode, episode_title = self._parse_episode_format(label)
                 return {
-                    'serie_name':   '',
-                    'next_season':  season  if season  else 0,
+                    'serie_name': '',
+                    'next_season': season if season else 0,
                     'next_episode': episode if episode else 0,
                     'episode_title': episode_title if episode_title else label,
-                    'thumbnail':    next_item.getArt('thumb'),
-                    'fanart':       next_item.getArt('fanart'),
-                    'description':  '',
+                    'thumbnail': next_item.getArt('thumb'),
+                    'fanart': next_item.getArt('fanart'),
+                    'description': '',
                 }
         except Exception:
             return None
@@ -232,14 +232,14 @@ class UpNextTVShowService:
             meta = self.db.get_next_tvshow_episode_metadata(tmdb_id, season, episode)
             if meta:
                 next_info = {
-                    'serie_name':    meta.get('serie_name', ''),
+                    'serie_name': meta.get('serie_name', ''),
                     'original_name': meta.get('original_name', ''),
-                    'next_season':   meta.get('season'),
-                    'next_episode':  meta.get('episode'),
+                    'next_season': meta.get('season'),
+                    'next_episode': meta.get('episode'),
                     'episode_title': meta.get('episode_title', ''),
-                    'thumbnail':     meta.get('thumbnail', ''),
-                    'fanart':        meta.get('fanart', ''),
-                    'description':   meta.get('description', ''),
+                    'thumbnail': meta.get('thumbnail', ''),
+                    'fanart': meta.get('fanart', ''),
+                    'description': meta.get('description', ''),
                 }
 
         with self._monitor_lock:
@@ -467,26 +467,26 @@ class UpNextAnimeService:
                     if not episode_title and title_p:
                         episode_title = title_p
                 return {
-                    'serie_name':    info_tag.getTVShowTitle() if hasattr(info_tag, 'getTVShowTitle') else '',
+                    'serie_name': info_tag.getTVShowTitle() if hasattr(info_tag, 'getTVShowTitle') else '',
                     'original_name': info_tag.getOriginalTitle() if hasattr(info_tag, 'getOriginalTitle') else '',
-                    'next_season':   None,
-                    'next_episode':  episode,
+                    'next_season': None,
+                    'next_episode': episode,
                     'episode_title': episode_title,
-                    'thumbnail':     self.default_icon,
-                    'fanart':        next_item.getArt('fanart'),
-                    'description':   info_tag.getPlot() if hasattr(info_tag, 'getPlot') else '',
+                    'thumbnail': self.default_icon,
+                    'fanart': next_item.getArt('fanart'),
+                    'description': info_tag.getPlot() if hasattr(info_tag, 'getPlot') else '',
                 }
             else:
                 label = next_item.getLabel()
                 episode, episode_title = self._parse_anime_episode_format(label)
                 return {
-                    'serie_name':   '',
-                    'next_season':  None,
+                    'serie_name': '',
+                    'next_season': None,
                     'next_episode': episode if episode else 0,
                     'episode_title': episode_title if episode_title else label,
-                    'thumbnail':    self.default_icon,
-                    'fanart':       next_item.getArt('fanart'),
-                    'description':  '',
+                    'thumbnail': self.default_icon,
+                    'fanart': next_item.getArt('fanart'),
+                    'description': '',
                 }
         except Exception:
             return None
@@ -515,14 +515,14 @@ class UpNextAnimeService:
             meta = self.db.get_next_anime_episode_metadata(mal_id, episode)
             if meta:
                 next_info = {
-                    'serie_name':    meta.get('anime_name', ''),
+                    'serie_name': meta.get('anime_name', ''),
                     'original_name': meta.get('anime_name_english', ''),
-                    'next_season':   None,
-                    'next_episode':  meta.get('episode'),
+                    'next_season': None,
+                    'next_episode': meta.get('episode'),
                     'episode_title': meta.get('episode_title', ''),
-                    'thumbnail':     self.default_icon,
-                    'fanart':        '',
-                    'description':   meta.get('description', ''),
+                    'thumbnail': self.default_icon,
+                    'fanart': '',
+                    'description': meta.get('description', ''),
                 }
 
         with self._monitor_lock:
