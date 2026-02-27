@@ -357,7 +357,3 @@ msgstr "Pular automaticamente (sem aviso)"
 msgctxt "#32204"
 msgid "Countdown (seconds)"
 msgstr "Contagem regressiva (segundos)"
-
-msgctxt "#32205"
-msgid "Anime skip prefetch limit"
-msgstr "Limite de pré-busca para pular animes"
