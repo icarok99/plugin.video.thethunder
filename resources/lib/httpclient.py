@@ -5,6 +5,7 @@ import json
 import time
 import hashlib
 import sqlite3
+import threading
 import xbmcvfs
 import xbmcaddon
 from datetime import datetime
@@ -17,6 +18,7 @@ addon = xbmcaddon.Addon()
 
 def getString(string_id):
     return addon.getLocalizedString(string_id)
+
 TRANSLATE = xbmcvfs.translatePath
 profile_dir = TRANSLATE(addon.getAddonInfo('profile'))
 db_file = os.path.join(profile_dir, 'media.db')
@@ -28,9 +30,24 @@ API_KEY = '92c1507cc18d85290e7a0b96abb37316'
 USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36'
 
 _season_cache = {}
+_season_cache_lock = threading.Lock()
+
+_db_initialized = False
+_db_init_lock = threading.Lock()
+
+def _check_expiry_once():
+    from resources.lib.cache_manager import check_auto_expiry
+    check_auto_expiry()
+
+_check_expiry_once()
 
 @contextmanager
 def get_connection():
+    global _db_initialized
+    with _db_init_lock:
+        if not _db_initialized:
+            _db_initialized = True
+            init_db()
     conn = sqlite3.connect(db_file)
     conn.row_factory = sqlite3.Row
     try:
@@ -43,61 +60,58 @@ def get_connection():
         conn.close()
 
 def init_db():
-    with get_connection() as conn:
-        cursor = conn.cursor()
-
+    conn = sqlite3.connect(db_file)
+    cursor = conn.cursor()
+    try:
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS cache (
-                url_hash TEXT PRIMARY KEY,
-                data TEXT NOT NULL,
+                url_hash  TEXT PRIMARY KEY,
+                data      TEXT NOT NULL,
                 timestamp REAL NOT NULL
             )
         ''')
 
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS episodes_tvshows (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                tmdb_id TEXT NOT NULL,
-                season INTEGER NOT NULL,
-                episode INTEGER NOT NULL,
-                episode_title TEXT,
-                description TEXT,
-                thumbnail TEXT,
-                fanart TEXT,
-                serie_name TEXT,
-                original_name TEXT,
-                imdb_id TEXT,
+                id             INTEGER PRIMARY KEY AUTOINCREMENT,
+                tmdb_id        TEXT    NOT NULL,
+                season         INTEGER NOT NULL,
+                episode        INTEGER NOT NULL,
+                episode_title  TEXT,
+                description    TEXT,
+                thumbnail      TEXT,
+                fanart         TEXT,
+                serie_name     TEXT,
+                original_name  TEXT,
+                imdb_id        TEXT,
                 is_last_episode TEXT DEFAULT 'no',
-                created_at TEXT,
-                updated_at TEXT,
+                created_at     TEXT,
+                updated_at     TEXT,
                 UNIQUE(tmdb_id, season, episode)
             )
         ''')
 
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS episodes_animes (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                mal_id TEXT NOT NULL,
-                episode INTEGER NOT NULL,
-                episode_title TEXT,
-                description TEXT,
-                thumbnail TEXT,
-                anime_name TEXT,
+                id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+                mal_id             TEXT    NOT NULL,
+                episode            INTEGER NOT NULL,
+                episode_title      TEXT,
+                description        TEXT,
+                thumbnail          TEXT,
+                anime_name         TEXT,
                 anime_name_english TEXT,
-                is_last_episode TEXT DEFAULT 'no',
-                created_at TEXT,
-                updated_at TEXT,
+                is_last_episode    TEXT DEFAULT 'no',
+                created_at         TEXT,
+                updated_at         TEXT,
                 UNIQUE(mal_id, episode)
             )
         ''')
 
-        cursor.execute('CREATE INDEX IF NOT EXISTS idx_tvshows_season ON episodes_tvshows(tmdb_id, season)')
-        cursor.execute('CREATE INDEX IF NOT EXISTS idx_animes_mal ON episodes_animes(mal_id)')
-
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS watched_episodes (
-                content_type TEXT NOT NULL,
-                content_id   TEXT NOT NULL,
+                content_type TEXT    NOT NULL,
+                content_id   TEXT    NOT NULL,
                 season       INTEGER,
                 episode      INTEGER NOT NULL,
                 watched_at   TEXT,
@@ -105,13 +119,35 @@ def init_db():
             )
         ''')
 
-init_db()
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS skip_timestamps_tvshow (
+                imdb_id     TEXT    NOT NULL,
+                season      INTEGER NOT NULL,
+                episode     INTEGER NOT NULL,
+                intro_start REAL,
+                intro_end   REAL,
+                source      TEXT    DEFAULT 'api',
+                updated_at  TEXT,
+                PRIMARY KEY (imdb_id, season, episode)
+            )
+        ''')
+
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_tvshows_season   ON episodes_tvshows(tmdb_id, season)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_animes_mal       ON episodes_animes(mal_id)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_skip_tvshow      ON skip_timestamps_tvshow(imdb_id, season)')
+
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
 
 def get_config_ttl():
     try:
         days = int(addon.getSetting('cache_ttl_days') or '7')
         return days * 86400 if days > 0 else 0
-    except:
+    except Exception:
         return 7 * 86400
 
 def clean_expired_cache(ttl_seconds):
@@ -119,14 +155,14 @@ def clean_expired_cache(ttl_seconds):
         return
     current_time = time.time()
     with get_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute('DELETE FROM cache WHERE timestamp < ?', (current_time - ttl_seconds,))
+        conn.cursor().execute(
+            'DELETE FROM cache WHERE timestamp < ?', (current_time - ttl_seconds,)
+        )
 
 def save_to_cache(url, data):
     hash_val = hashlib.md5(url.encode()).hexdigest()
     with get_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute('''
+        conn.cursor().execute('''
             INSERT OR REPLACE INTO cache (url_hash, data, timestamp)
             VALUES (?, ?, ?)
         ''', (hash_val, json.dumps(data), time.time()))
@@ -140,21 +176,19 @@ def get_json(url, ttl=None):
         cache_ttl_seconds = cache_ttl_days * 86400 if cache_ttl_days > 0 else 0
 
         if cache_ttl_days == 0:
-            with get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute('DELETE FROM cache')
+            from resources.lib.cache_manager import clear_cache
+            clear_cache()
         elif cache_ttl_days > 0:
             clean_expired_cache(cache_ttl_seconds)
-    except:
+    except Exception:
         pass
 
     hash_val = hashlib.md5(url.encode()).hexdigest()
-    
+
     with get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute('SELECT data, timestamp FROM cache WHERE url_hash = ?', (hash_val,))
         row = cursor.fetchone()
-
         if row:
             cached_data, timestamp = row[0], row[1]
             if time.time() - timestamp < ttl:
@@ -166,7 +200,7 @@ def get_json(url, ttl=None):
         data = r.json()
         save_to_cache(url, data)
         return data
-    except:
+    except Exception:
         return {}
 
 def save_tvshow_season_episodes(tmdb_id, season, serie_name, original_name,
@@ -182,10 +216,10 @@ def save_tvshow_season_episodes(tmdb_id, season, serie_name, original_name,
     batch_data = []
     for ep_data in episodes_data:
         episode_num = int(ep_data[0])
-        title       = ep_data[1] if len(ep_data) > 1 else ''
+        title = ep_data[1] if len(ep_data) > 1 else ''
         description = ep_data[2] if len(ep_data) > 2 else ''
-        thumbnail   = ep_data[3] if len(ep_data) > 3 else ''
-        fanart      = ep_data[4] if len(ep_data) > 4 else ''
+        thumbnail = ep_data[3] if len(ep_data) > 3 else ''
+        fanart = ep_data[4] if len(ep_data) > 4 else ''
         is_last = 'yes' if episode_num == last_episode_num else 'no'
         batch_data.append((
             tmdb_id, season, episode_num, title, description,
@@ -206,7 +240,7 @@ def save_tvshow_season_episodes(tmdb_id, season, serie_name, original_name,
                 fanart          = excluded.fanart,
                 serie_name      = excluded.serie_name,
                 original_name   = excluded.original_name,
-                imdb_id         = excluded.imdb_id,
+                imdb_id         = COALESCE(excluded.imdb_id, imdb_id),
                 is_last_episode = excluded.is_last_episode,
                 updated_at      = excluded.updated_at
         ''', batch_data)
@@ -216,7 +250,7 @@ def process_and_save_tvshow_season(tmdb_id, season_data, imdb_id=None):
         return False
     try:
         season_number = season_data.get('season_number', 0)
-        serie_name    = season_data.get('name', '')
+        serie_name = season_data.get('name', '')
         episodes_list = season_data.get('episodes', [])
         if not episodes_list:
             return False
@@ -243,7 +277,7 @@ def process_and_save_tvshow_season(tmdb_id, season_data, imdb_id=None):
             imdb_id=imdb_id
         )
         return True
-    except Exception as e:
+    except Exception:
         return False
 
 def get_tvshow_episode(tmdb_id, season, episode):
@@ -254,9 +288,7 @@ def get_tvshow_episode(tmdb_id, season, episode):
             WHERE tmdb_id = ? AND season = ? AND episode = ?
         ''', (str(tmdb_id), season, episode))
         row = cursor.fetchone()
-        if row:
-            return dict(row)
-        return None
+        return dict(row) if row else None
 
 def get_anime_episode(mal_id, episode):
     with get_connection() as conn:
@@ -266,9 +298,7 @@ def get_anime_episode(mal_id, episode):
             WHERE mal_id = ? AND episode = ?
         ''', (str(mal_id), episode))
         row = cursor.fetchone()
-        if row:
-            return dict(row)
-        return None
+        return dict(row) if row else None
 
 def search_movie_api(search, page=1):
     url = f'https://api.themoviedb.org/3/search/movie?api_key={API_KEY}&query={quote(search)}&page={page}&language={getString(30700)}'
@@ -325,32 +355,43 @@ def open_season_api(id):
     url = f'https://api.themoviedb.org/3/tv/{id}?api_key={API_KEY}&append_to_response=external_ids&language={getString(30700)}'
     return get_json(url)
 
-def show_episode_api(id, season):
+def _update_season_imdb_id(tmdb_id, season, imdb_id):
+    with get_connection() as conn:
+        conn.cursor().execute('''
+            UPDATE episodes_tvshows
+            SET imdb_id = ?, updated_at = ?
+            WHERE tmdb_id = ? AND season = ?
+              AND (imdb_id IS NULL OR imdb_id = '')
+        ''', (imdb_id, datetime.now().strftime('%Y-%m-%d %H:%M:%S'), tmdb_id, season))
 
-    cache_key = f"{id}_{season}"
-    if cache_key in _season_cache:
-        return _season_cache[cache_key]
-    
+def show_episode_api(id, season, imdb_id=None):
+    cache_key = f'{id}_{season}'
+
+    with _season_cache_lock:
+        if cache_key in _season_cache:
+            cached = _season_cache[cache_key]
+        else:
+            cached = None
+
+    if cached is not None:
+        if imdb_id:
+            try:
+                _update_season_imdb_id(str(id), int(season), imdb_id)
+            except Exception:
+                pass
+        return cached
+
     url = f'https://api.themoviedb.org/3/tv/{id}/season/{season}?api_key={API_KEY}&language={getString(30700)}'
     data = get_json(url)
-    
-    imdb_id = ''
-    try:
-        serie_url = f'https://api.themoviedb.org/3/tv/{id}?api_key={API_KEY}&append_to_response=external_ids'
-        serie_data = get_json(serie_url)
-        if serie_data:
-            imdb_id = serie_data.get('external_ids', {}).get('imdb_id', '')
-    except Exception as e:
-        print(f"[HTTPCLIENT] Aviso: Não foi possível buscar IMDB ID da série: {e}")
-    
+
     if data and 'episodes' in data:
         try:
             process_and_save_tvshow_season(id, data, imdb_id)
-        except Exception as e:
-            print(f"[HTTPCLIENT] Aviso: Não foi possível salvar episódios: {e}")
-    
-    _season_cache[cache_key] = data
-    
+        except Exception:
+            pass
+
+    with _season_cache_lock:
+        _season_cache[cache_key] = data
     return data
 
 def find_tv_show_api(imdb):
@@ -404,11 +445,11 @@ def open_anime_episodes_api(id):
         return all_episodes
 
     try:
-        anime_info         = open_anime_api(id).get('data', {})
-        anime_name         = anime_info.get('title', '')
+        anime_info = open_anime_api(id).get('data', {})
+        anime_name = anime_info.get('title', '')
         anime_name_english = anime_info.get('title_english', '')
-        now                = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        last_ep            = max(ep.get('mal_id', 0) for ep in all_episodes)
+        now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        last_ep = max(ep.get('mal_id', 0) for ep in all_episodes)
 
         batch_data = []
         for ep in all_episodes:
@@ -428,7 +469,6 @@ def open_anime_episodes_api(id):
 
         with get_connection() as conn:
             save_to_cache(cache_url, {'episodes': all_episodes})
-
             conn.executemany('''
                 INSERT INTO episodes_animes
                 (mal_id, episode, episode_title, description, thumbnail,
@@ -444,8 +484,8 @@ def open_anime_episodes_api(id):
                     is_last_episode    = excluded.is_last_episode,
                     updated_at         = excluded.updated_at
             ''', batch_data)
-    except Exception as e:
-        print(f"[HTTPCLIENT] Aviso: Não foi possível salvar episódios do anime: {e}")
+    except Exception:
+        pass
 
     return all_episodes
 
@@ -466,6 +506,26 @@ class ThunderDatabase:
 
     def __init__(self):
         pass
+
+    def get_tvshow_episode(self, tmdb_id, season, episode):
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT * FROM episodes_tvshows
+                WHERE tmdb_id = ? AND season = ? AND episode = ?
+            ''', (str(tmdb_id), int(season), int(episode)))
+            row = cursor.fetchone()
+            return dict(row) if row else None
+
+    def get_anime_episode(self, mal_id, episode):
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT * FROM episodes_animes
+                WHERE mal_id = ? AND episode = ?
+            ''', (str(mal_id), int(episode)))
+            row = cursor.fetchone()
+            return dict(row) if row else None
 
     def get_tvshow_season_episodes(self, tmdb_id, season):
         with get_connection() as conn:
@@ -491,7 +551,8 @@ class ThunderDatabase:
         now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         with get_connection() as conn:
             conn.cursor().execute('''
-                INSERT OR REPLACE INTO watched_episodes (content_type, content_id, season, episode, watched_at)
+                INSERT OR REPLACE INTO watched_episodes
+                    (content_type, content_id, season, episode, watched_at)
                 VALUES ('tvshow', ?, ?, ?, ?)
             ''', (str(tmdb_id), int(season), int(episode), now))
 
@@ -499,7 +560,8 @@ class ThunderDatabase:
         now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         with get_connection() as conn:
             conn.cursor().execute('''
-                INSERT OR REPLACE INTO watched_episodes (content_type, content_id, season, episode, watched_at)
+                INSERT OR REPLACE INTO watched_episodes
+                    (content_type, content_id, season, episode, watched_at)
                 VALUES ('anime', ?, 0, ?, ?)
             ''', (str(mal_id), int(episode), now))
 
@@ -520,3 +582,109 @@ class ThunderDatabase:
                 WHERE content_type = 'anime' AND content_id = ?
             ''', (str(mal_id),))
             return {row[0] for row in cursor.fetchall()}
+
+    def get_tvshow_imdb_id(self, tmdb_id, season, episode):
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT imdb_id FROM episodes_tvshows
+                WHERE tmdb_id = ? AND season = ? AND episode = ?
+            ''', (str(tmdb_id), int(season), int(episode)))
+            row = cursor.fetchone()
+            if row and row[0]:
+                return row[0]
+            cursor.execute('''
+                SELECT imdb_id FROM episodes_tvshows
+                WHERE tmdb_id = ? AND season = ?
+                  AND imdb_id IS NOT NULL AND imdb_id != ''
+                LIMIT 1
+            ''', (str(tmdb_id), int(season)))
+            row = cursor.fetchone()
+            return row[0] if row else None
+
+    def get_tvshow_skip_timestamps(self, imdb_id, season, episode):
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT intro_start, intro_end, source
+                FROM skip_timestamps_tvshow
+                WHERE imdb_id = ? AND season = ? AND episode = ?
+            ''', (imdb_id, int(season), int(episode)))
+            row = cursor.fetchone()
+            if not row:
+                return None
+            intro_start, intro_end, source = row
+            if intro_start is None or intro_end is None:
+                return None
+            return {'intro_start': intro_start, 'intro_end': intro_end, 'source': source}
+
+    def save_tvshow_skip_timestamps(self, imdb_id, season, episode,
+                                    intro_start=None, intro_end=None, source='introhater'):
+        now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        with get_connection() as conn:
+            conn.cursor().execute('''
+                INSERT INTO skip_timestamps_tvshow
+                    (imdb_id, season, episode, intro_start, intro_end, source, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(imdb_id, season, episode)
+                DO UPDATE SET
+                    intro_start = COALESCE(excluded.intro_start, intro_start),
+                    intro_end   = COALESCE(excluded.intro_end,   intro_end),
+                    source      = excluded.source,
+                    updated_at  = excluded.updated_at
+            ''', (imdb_id, int(season), int(episode), intro_start, intro_end, source, now))
+
+    def tvshow_imdb_fetched(self, imdb_id):
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                'SELECT 1 FROM skip_timestamps_tvshow WHERE imdb_id = ? LIMIT 1',
+                (imdb_id,)
+            )
+            return cursor.fetchone() is not None
+
+    def get_next_tvshow_episode_metadata(self, tmdb_id, season, episode):
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT * FROM episodes_tvshows
+                WHERE tmdb_id = ? AND season = ? AND episode IN (?, ?)
+                ORDER BY episode
+            ''', (str(tmdb_id), int(season), int(episode), int(episode) + 1))
+            rows = cursor.fetchall()
+            if not rows:
+                return None
+            current_ep = None
+            next_ep = None
+            for row in rows:
+                d = dict(row)
+                if d['episode'] == int(episode):
+                    current_ep = d
+                elif d['episode'] == int(episode) + 1:
+                    next_ep = d
+            if current_ep and current_ep.get('is_last_episode') == 'yes':
+                return None
+            return next_ep
+
+    def get_next_anime_episode_metadata(self, mal_id, episode):
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT * FROM episodes_animes
+                WHERE mal_id = ? AND episode IN (?, ?)
+                ORDER BY episode
+            ''', (str(mal_id), int(episode), int(episode) + 1))
+            rows = cursor.fetchall()
+            if not rows:
+                return None
+            current_ep = None
+            next_ep = None
+            for row in rows:
+                d = dict(row)
+                if d['episode'] == int(episode):
+                    current_ep = d
+                elif d['episode'] == int(episode) + 1:
+                    next_ep = d
+            if current_ep and current_ep.get('is_last_episode') == 'yes':
+                return None
+            return next_ep

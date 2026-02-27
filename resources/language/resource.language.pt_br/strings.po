@@ -337,3 +337,23 @@ msgstr "Cancelar"
 msgctxt "#32110"
 msgid "Ep {0:02d}"
 msgstr "Ep {0:02d}"
+
+msgctxt "#32200"
+msgid "Skip Intro"
+msgstr "Pular abertura"
+
+msgctxt "#32201"
+msgid "Enable Skip Intro"
+msgstr "Ativar pular abertura"
+
+msgctxt "#32202"
+msgid "Skip ({0}s)"
+msgstr "Pular abertura ({0}s)"
+
+msgctxt "#32203"
+msgid "Auto Skip (no prompt)"
+msgstr "Pular automaticamente (sem aviso)"
+
+msgctxt "#32204"
+msgid "Countdown (seconds)"
+msgstr "Contagem regressiva (segundos)"
