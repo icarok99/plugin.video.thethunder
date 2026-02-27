@@ -93,25 +93,25 @@ def is_auto_play_enabled():
 def build_tvshow_playlist(tmdb_id, season_num, current_episode_num, serie_name, original_name, all_episodes, imdb_id):
     if not all_episodes or not isinstance(all_episodes, list):
         return
-    
+
     if not isinstance(season_num, int) or not isinstance(current_episode_num, int):
         return
-    
+
     playlist = xbmc.PlayList(xbmc.PLAYLIST_VIDEO)
-    
+
     for episode_data in all_episodes:
         if not isinstance(episode_data, dict):
             continue
-            
+
         ep_num = episode_data.get('episode')
         if not ep_num or not isinstance(ep_num, int):
             continue
-            
+
         name = episode_data.get('episode_title', '')
         img = episode_data.get('thumbnail', '')
         fanart = episode_data.get('fanart', '')
         description = episode_data.get('description', '')
-        
+
         if ep_num > current_episode_num:
             params = {
                 'serie_name': serie_name,
@@ -125,14 +125,14 @@ def build_tvshow_playlist(tmdb_id, season_num, current_episode_num, serie_name, 
                 'fanart': fanart,
                 'description': description
             }
-            
+
             plugin_url = 'plugin://plugin.video.thethunder/play_resolve_tvshows/{}'.format(urlencode(params))
-            
+
             title = name if name else '{}x{}'.format(season_num, str(ep_num).zfill(2))
-            
+
             list_item = xbmcgui.ListItem(title)
             list_item.setArt({'thumb': img, 'icon': img, 'fanart': fanart or img})
-            
+
             if KODI_MAJOR >= 20:
                 info_tag = list_item.getVideoInfoTag()
                 info_tag.setTitle(name if name else title)
@@ -153,31 +153,31 @@ def build_tvshow_playlist(tmdb_id, season_num, current_episode_num, serie_name, 
                     'episode': ep_num,
                     'originaltitle': original_name,
                 })
-            
+
             playlist.add(url=plugin_url, listitem=list_item)
 
 def build_anime_playlist(mal_id, current_episode_num, serie_name, original_name, all_episodes):
     if not all_episodes or not isinstance(all_episodes, list):
         return
-    
+
     if not isinstance(current_episode_num, int):
         return
-    
+
     playlist = xbmc.PlayList(xbmc.PLAYLIST_VIDEO)
-    
+
     for episode_data in all_episodes:
         if not isinstance(episode_data, dict):
             continue
-            
+
         ep_num = episode_data.get('episode')
         if not ep_num or not isinstance(ep_num, int):
             continue
-            
+
         name = episode_data.get('episode_title', '')
         img = episode_data.get('thumbnail', '')
         fanart = episode_data.get('fanart', '')
         description = episode_data.get('description', '')
-        
+
         if ep_num > current_episode_num:
             params = {
                 'serie_name': serie_name,
@@ -190,14 +190,14 @@ def build_anime_playlist(mal_id, current_episode_num, serie_name, original_name,
                 'description': description,
                 'is_anime': 'true'
             }
-            
+
             plugin_url = 'plugin://plugin.video.thethunder/play_resolve_animes/{}'.format(urlencode(params))
-            
+
             title = 'Ep {} {}'.format(ep_num, name) if name else 'Ep {}'.format(ep_num)
-            
+
             list_item = xbmcgui.ListItem(title)
             list_item.setArt({'thumb': img, 'icon': img, 'fanart': fanart or img})
-            
+
             if KODI_MAJOR >= 20:
                 info_tag = list_item.getVideoInfoTag()
                 info_tag.setTitle(name if name else f'Ep {ep_num}')
@@ -218,7 +218,7 @@ def build_anime_playlist(mal_id, current_episode_num, serie_name, original_name,
                     'episode': ep_num,
                     'originaltitle': original_name
                 })
-            
+
             playlist.add(url=plugin_url, listitem=list_item)
 
 def try_resolve_with_fallback(menus_links, season, episode, is_anime=False):
@@ -226,7 +226,7 @@ def try_resolve_with_fallback(menus_links, season, episode, is_anime=False):
         return None, None
     preferred_lang = get_preferred_language().upper()
     TOP_HOSTS = ["FILEMOON", "DOODSTREAM", "STREAMTAPE", "MIXDROP", "WAREZCDN"]
-    
+
     def get_priority_score(label, url=""):
         label_u = (label or "").upper()
         score = 0
@@ -242,7 +242,7 @@ def try_resolve_with_fallback(menus_links, season, episode, is_anime=False):
                 score += (len(TOP_HOSTS) - i) * 10
                 break
         return score
-    
+
     sorted_links = sorted(menus_links, key=lambda x: get_priority_score(x[0], x[1]), reverse=True)
     tried = set()
     for name, url in sorted_links:
@@ -254,7 +254,7 @@ def try_resolve_with_fallback(menus_links, season, episode, is_anime=False):
             if final_url in tried:
                 continue
             tried.add(final_url)
-            
+
             if is_anime:
                 if season is None and episode is None:
                     stream, sub = sources.select_resolver_anime_movie(final_url)
@@ -265,7 +265,7 @@ def try_resolve_with_fallback(menus_links, season, episode, is_anime=False):
                     stream, sub = sources.select_resolver_movie(final_url)
                 else:
                     stream, sub = sources.select_resolver_tvshow(final_url, season, episode)
-            
+
             if stream:
                 return stream, sub
         except:
@@ -283,30 +283,30 @@ def auto_play_preferred_language(mal_id, tmdb_id, imdb, year, season, episode, v
             menus_links = sources.movie_content(imdb, year)
         else:
             menus_links = sources.show_content(imdb, season, episode)
-        
+
         if not menus_links:
             notify(getString(30401))
             return False
-        
+
         stream, sub = try_resolve_with_fallback(
-            menus_links, 
-            season, 
-            episode, 
+            menus_links,
+            season,
+            episode,
             is_anime=(is_anime == 'true')
         )
-        
+
         if not stream:
             notify(getString(30402))
             return False
         stop_player()
-        
+
         play_item = xbmcgui.ListItem(path=stream)
         play_item.setArt({'thumb': iconimage, 'icon': iconimage, 'fanart': fanart})
-        
+
         if season and episode:
             showtitle = serie_name
             episode_title = video_title or f"{getString(30602)} {episode}"
-            
+
             if KODI_MAJOR >= 20:
                 info_tag = play_item.getVideoInfoTag()
                 info_tag.setTitle(episode_title)
@@ -342,7 +342,7 @@ def auto_play_preferred_language(mal_id, tmdb_id, imdb, year, season, episode, v
                 if year:
                     info_dict['year'] = int(year)
                 play_item.setInfo('video', info_dict)
-        
+
         if sub:
             play_item.setSubtitles([sub])
         xbmcplugin.setResolvedUrl(int(sys.argv[1]), True, play_item)
@@ -418,7 +418,7 @@ def search_movies(param=None):
         fanart = f"https://image.tmdb.org/t/p/original{movie.get('backdrop_path')}" if movie.get('backdrop_path') else ''
         description = movie.get('overview', '')
         original_name = movie.get('original_title', '')
-        
+
         addMenuItem({
             'name': display_name,
             'tmdb_id': str(movie['id']),
@@ -526,7 +526,7 @@ def popular_movies(param=None):
             description = movie.get('overview', '')
             original_name = movie.get('original_title', '')
             tmdb_id = str(movie['id'])
-            
+
             addMenuItem({
                 'name': f"{title} ({year})" if year else title,
                 'tmdb_id': tmdb_id,
@@ -536,7 +536,7 @@ def popular_movies(param=None):
                 'description': description,
                 'movie_name': title,
                 'original_name': original_name,
-                
+
                 'playable': 'true'
             }, destiny='/play_resolve_movies', folder=False)
         if page < total_pages:
@@ -563,7 +563,7 @@ def trending_movies(param=None):
             description = movie.get('overview', '')
             original_name = movie.get('original_title', '')
             tmdb_id = str(movie['id'])
-            
+
             addMenuItem({
                 'name': f"{title} ({year})" if year else title,
                 'tmdb_id': tmdb_id,
@@ -573,7 +573,7 @@ def trending_movies(param=None):
                 'description': description,
                 'movie_name': title,
                 'original_name': original_name,
-                
+
                 'playable': 'true'
             }, destiny='/play_resolve_movies', folder=False)
         if page < total_pages:
@@ -600,7 +600,7 @@ def premiere_movies(param=None):
             description = movie.get('overview', '')
             original_name = movie.get('original_title', '')
             tmdb_id = str(movie['id'])
-            
+
             addMenuItem({
                 'name': f"{title} ({year})" if year else title,
                 'tmdb_id': tmdb_id,
@@ -610,7 +610,7 @@ def premiere_movies(param=None):
                 'description': description,
                 'movie_name': title,
                 'original_name': original_name,
-                
+
                 'playable': 'true'
             }, destiny='/play_resolve_movies', folder=False)
         if page < total_pages:
@@ -645,7 +645,7 @@ def popular_tvshows(param=None):
                 'description': description,
                 'serie_name': title,
                 'original_name': original_name,
-                
+
             }, destiny='/tvshow_season')
         if page < total_pages:
             addMenuItem({
@@ -679,7 +679,7 @@ def trending_tvshows(param=None):
                 'description': description,
                 'serie_name': title,
                 'original_name': original_name,
-                
+
             }, destiny='/tvshow_season')
         if page < total_pages:
             addMenuItem({
@@ -713,7 +713,7 @@ def premiere_tvshows(param=None):
                 'description': description,
                 'serie_name': title,
                 'original_name': original_name,
-                
+
             }, destiny='/tvshow_season')
         if page < total_pages:
             addMenuItem({
@@ -827,18 +827,18 @@ def animes_by_season(param):
     anime_season = param.get('anime_season', '')
     year = param.get('year', '')
     page = int(param.get('page', 1))
-    
+
     try:
         total_pages, results = httpclient.animes_by_season_api(year, anime_season, page)
         setcontent('tvshows')
-        
+
         for anime in results:
             title = anime.get('title_english') or anime.get('title')
             year_anime = str(anime.get('year') or '')
             icon = anime.get('images', {}).get('jpg', {}).get('large_image_url') or get_icon('animes')
             fanart = icon
             description = anime.get('synopsis', '')
-            
+
             addMenuItem({
                 'name': title,
                 'mal_id': str(anime['mal_id']),
@@ -861,7 +861,7 @@ def animes_by_season(param):
 
         end()
         setview('List')
-        
+
     except:
         pass
 
@@ -994,7 +994,7 @@ def tvshow_season(param):
     tmdb_id = param.get('tmdb_id', '')
     year = param.get('year', '')
     serie_name = param.get('serie_name', '')
-    
+
     try:
         show_src = httpclient.open_season_api(tmdb_id)
         if not serie_name:
@@ -1003,7 +1003,7 @@ def tvshow_season(param):
         fanart = f"https://image.tmdb.org/t/p/original{show_src.get('backdrop_path')}" if show_src.get('backdrop_path') else ''
         imdb = show_src.get('external_ids', {}).get('imdb_id', '')
         original_name = show_src.get('original_name', '')
-        
+
         seasons = show_src.get('seasons', [])
         setcontent('tvshows')
         for season in seasons:
@@ -1012,7 +1012,7 @@ def tvshow_season(param):
                 continue
             season_name = f"{season_num}ª {getString(30601)}"
             season_icon = f"https://image.tmdb.org/t/p/w500{season.get('poster_path')}" if season.get('poster_path') else iconimage
-            
+
             addMenuItem({
                 'name': season_name,
                 'iconimage': season_icon,
@@ -1075,7 +1075,8 @@ def anime_episodes(param):
             if episode_count > 0:
                 threading.Thread(
                     target=prefetch_anime_skip_timestamps,
-                    args=(str(mal_id), episode_count, db_instance),
+                    args=(str(mal_id), db_instance),
+                    kwargs={'anime_name': anime_name},
                     daemon=True
                 ).start()
         except Exception:
@@ -1121,19 +1122,19 @@ def open_episodes(param):
     serie_name = param.get('serie_name', '')
     imdb = param.get('imdbnumber', '')
     original_name = param.get('original_name', '')
-    
+
     try:
         show_src = httpclient.open_season_api(tmdb_id)
         if not serie_name:
             serie_name = show_src.get('name', '')
         if not imdb:
             imdb = show_src.get('external_ids', {}).get('imdb_id', '')
-        
+
         src = httpclient.show_episode_api(tmdb_id, season_num, imdb_id=imdb)
-        
+
         iconimage = f"https://image.tmdb.org/t/p/w500{show_src.get('poster_path')}" if show_src.get('poster_path') else get_icon('series')
         serie_fanart = f"https://image.tmdb.org/t/p/original{show_src.get('backdrop_path')}" if show_src.get('backdrop_path') else ''
-        
+
         today = datetime.now().date()
 
         db_instance = httpclient.ThunderDatabase()
@@ -1145,7 +1146,7 @@ def open_episodes(param):
             if imdb and episode_count > 0:
                 threading.Thread(
                     target=prefetch_tvshow_skip_timestamps,
-                    args=(imdb, int(season_num), episode_count, db_instance),
+                    args=(imdb, db_instance, int(season_num)),
                     daemon=True
                 ).start()
         except Exception:
@@ -1201,42 +1202,42 @@ def play_resolve_tvshows(param):
     fanart = param.get('fanart', iconimage)
     description = param.get('description', '')
     from_upnext = param.get('from_upnext', 'false')
-    
+
     if not season_num or not episode_num:
         notify(getString(30800))
         return
-    
+
     try:
         season_num = int(season_num)
         episode_num = int(episode_num)
     except:
         notify(getString(30801))
         return
-    
+
     loading_manager.show(fanart_path=fanart)
-    
+
     try:
         stream = None
         sub = None
-        
+
         menus_links = sources.show_content(imdb, season_num, episode_num)
         loading_manager.set_sources_found(len(menus_links))
-        
+
         if not menus_links:
             loading_manager.force_close()
             notify(getString(30401))
             return
-        
+
         if is_auto_play_enabled():
             loading_manager.set_phase3()
-            
+
             stream, sub = try_resolve_with_fallback(
-                menus_links, 
-                season_num, 
-                episode_num, 
+                menus_links,
+                season_num,
+                episode_num,
                 is_anime=False
             )
-            
+
             if not stream:
                 loading_manager.force_close()
                 notify(getString(30402))
@@ -1244,26 +1245,26 @@ def play_resolve_tvshows(param):
         else:
             player_list = [(name, "") for name, url in menus_links]
             selected_index = loading_manager.set_phase2(player_list)
-            
+
             if selected_index < 0:
                 loading_manager.force_close()
                 return
-            
+
             loading_manager.set_phase3()
             selected_url = menus_links[selected_index][1]
-            
+
             decoded = unquote(selected_url)
             parsed = urlparse(decoded)
             qs = parse_qs(parsed.query)
             final_url = qs.get('url', [decoded])[0] or qs.get('u', [decoded])[0] or decoded
-            
+
             stream, sub = sources.select_resolver_tvshow(final_url, season_num, episode_num)
-            
+
             if not stream:
                 loading_manager.force_close()
                 notify(getString(30402))
                 return
-        
+
         url = stream.split('|')[0] if '|' in stream else stream
         headers = stream.split('|', 1)[1] if '|' in stream else ''
         is_direct_file = url.lower().split('?')[0].endswith(('.mp4', '.mkv', '.avi', '.mov', '.webm', '.ts'))
@@ -1319,17 +1320,17 @@ def play_resolve_tvshows(param):
             if tmdb_id:
                 info_dict['uniqueid'] = {'tmdb': tmdb_id}
             play_item.setInfo('video', info_dict)
-        
+
         if sub:
             play_item.setSubtitles([sub])
-        
+
         xbmcplugin.setResolvedUrl(int(sys.argv[1]), True, play_item)
-        
+
         loading_manager.close()
-        
+
         playlist = xbmc.PlayList(xbmc.PLAYLIST_VIDEO)
         current_position = playlist.getposition()
-        
+
         if current_position == 0 or playlist.size() <= 1:
             db = httpclient.ThunderDatabase()
             all_episodes = db.get_tvshow_season_episodes(tmdb_id, season_num)
@@ -1343,13 +1344,13 @@ def play_resolve_tvshows(param):
                     all_episodes=all_episodes,
                     imdb_id=imdb
                 )
-        
+
         threading.Thread(
             target=get_player().start_monitoring_tvshow,
             args=(tmdb_id, season_num, episode_num),
             daemon=True
         ).start()
-        
+
     except Exception as e:
         loading_manager.force_close()
         notify(getString(30304))
@@ -1367,40 +1368,40 @@ def play_resolve_animes(param):
     original_name = param.get('original_name', '')
     episode_title = param.get('episode_title', '')
     from_upnext = param.get("from_upnext", "false")
-    
+
     if not mal_id or not episode_num:
         notify(getString(30800))
         return
-    
+
     try:
         episode_num = int(episode_num)
     except:
         notify(getString(30801))
         return
-    
+
     loading_manager.show(fanart_path=fanart)
-    
+
     try:
         stream = None
         sub = None
-        
+
         menus_links = sources.show_content_anime(mal_id, episode_num)
         loading_manager.set_sources_found(len(menus_links))
-        
+
         if not menus_links:
             loading_manager.force_close()
             notify(getString(30401))
             return
-        
+
         if is_auto_play_enabled():
             loading_manager.set_phase3()
-            
+
             stream, sub = try_resolve_with_fallback(
-                menus_links, 
-                episode_num, 
+                menus_links,
+                episode_num,
                 is_anime=True
             )
-            
+
             if not stream:
                 loading_manager.force_close()
                 notify(getString(30402))
@@ -1408,35 +1409,35 @@ def play_resolve_animes(param):
         else:
             player_list = [(name, "") for name, url in menus_links]
             selected_index = loading_manager.set_phase2(player_list)
-            
+
             if selected_index < 0:
                 loading_manager.force_close()
                 return
-            
+
             loading_manager.set_phase3()
             selected_url = menus_links[selected_index][1]
-            
+
             decoded = unquote(selected_url)
             parsed = urlparse(decoded)
             qs = parse_qs(parsed.query)
             final_url = qs.get('url', [decoded])[0] or qs.get('u', [decoded])[0] or decoded
-            
+
             stream, sub = sources.select_resolver_anime(final_url, episode_num)
-            
+
             if not stream:
                 loading_manager.force_close()
                 notify(getString(30402))
                 return
-        
+
         stop_player()
-        
+
         if not episode_title:
             episode_title = f"Ep {episode_num}"
-        
+
         play_item = xbmcgui.ListItem(path=stream)
         play_item.setArt({'thumb': iconimage, 'icon': iconimage, 'fanart': fanart})
         play_item.setContentLookup(False)
-        
+
         if KODI_MAJOR >= 20:
             info_tag = play_item.getVideoInfoTag()
             info_tag.setTitle(episode_title)
@@ -1459,17 +1460,17 @@ def play_resolve_animes(param):
             if original_name:
                 info_dict['originaltitle'] = original_name
             play_item.setInfo('video', info_dict)
-        
+
         if sub:
             play_item.setSubtitles([sub])
-        
+
         xbmcplugin.setResolvedUrl(int(sys.argv[1]), True, play_item)
-        
+
         loading_manager.close()
-        
+
         playlist = xbmc.PlayList(xbmc.PLAYLIST_VIDEO)
         current_position = playlist.getposition()
-        
+
         if current_position == 0 or playlist.size() <= 1:
             db = httpclient.ThunderDatabase()
             all_episodes = db.get_anime_all_episodes(mal_id)
@@ -1481,13 +1482,13 @@ def play_resolve_animes(param):
                     original_name=original_name,
                     all_episodes=all_episodes
                 )
-        
+
         threading.Thread(
             target=get_player().start_monitoring_anime,
             args=(mal_id, episode_num),
             daemon=True
         ).start()
-        
+
     except Exception as e:
         loading_manager.force_close()
         notify(getString(30304))
