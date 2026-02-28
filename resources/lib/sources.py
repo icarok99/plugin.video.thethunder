@@ -174,12 +174,6 @@ def search_anime_movies(mal_id):
     
     return streams_final
 
-def search_animes(mal_id, episode):
-    if episode is None:
-        return search_anime_movies(mal_id)
-    else:
-        return search_anime_episodes(mal_id, episode)
-
 def show_content_anime(mal_id, episode):
     return search_anime_episodes(mal_id, episode)
 
@@ -248,14 +242,4 @@ def resolve_anime_movies(url):
                 continue
     return stream, sub
 
-def select_resolver_movie(url):
-    return resolve_movies(url)
 
-def select_resolver_tvshow(url, season, episode):
-    return resolve_tvshows(url)
-
-def select_resolver_anime(url, episode):
-    return resolve_animes(url)
-
-def select_resolver_anime_movie(url):
-    return resolve_anime_movies(url)

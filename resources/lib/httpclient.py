@@ -65,76 +65,76 @@ def init_db():
     try:
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS cache (
-                url_hash  TEXT PRIMARY KEY,
-                data      TEXT NOT NULL,
+                url_hash TEXT PRIMARY KEY,
+                data TEXT NOT NULL,
                 timestamp REAL NOT NULL
             )
         ''')
 
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS episodes_tvshows (
-                id             INTEGER PRIMARY KEY AUTOINCREMENT,
-                tmdb_id        TEXT    NOT NULL,
-                season         INTEGER NOT NULL,
-                episode        INTEGER NOT NULL,
-                episode_title  TEXT,
-                description    TEXT,
-                thumbnail      TEXT,
-                fanart         TEXT,
-                serie_name     TEXT,
-                original_name  TEXT,
-                imdb_id        TEXT,
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                tmdb_id TEXT NOT NULL,
+                season INTEGER NOT NULL,
+                episode INTEGER NOT NULL,
+                episode_title TEXT,
+                description TEXT,
+                thumbnail TEXT,
+                fanart TEXT,
+                serie_name TEXT,
+                original_name TEXT,
+                imdb_id TEXT,
                 is_last_episode TEXT DEFAULT 'no',
-                created_at     TEXT,
-                updated_at     TEXT,
+                created_at TEXT,
+                updated_at TEXT,
                 UNIQUE(tmdb_id, season, episode)
             )
         ''')
 
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS episodes_animes (
-                id                 INTEGER PRIMARY KEY AUTOINCREMENT,
-                mal_id             TEXT    NOT NULL,
-                episode            INTEGER NOT NULL,
-                episode_title      TEXT,
-                description        TEXT,
-                thumbnail          TEXT,
-                anime_name         TEXT,
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                mal_id TEXT NOT NULL,
+                episode INTEGER NOT NULL,
+                episode_title TEXT,
+                description TEXT,
+                thumbnail TEXT,
+                anime_name TEXT,
                 anime_name_english TEXT,
-                is_last_episode    TEXT DEFAULT 'no',
-                created_at         TEXT,
-                updated_at         TEXT,
+                is_last_episode TEXT DEFAULT 'no',
+                created_at TEXT,
+                updated_at TEXT,
                 UNIQUE(mal_id, episode)
             )
         ''')
 
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS watched_episodes (
-                content_type TEXT    NOT NULL,
-                content_id   TEXT    NOT NULL,
-                season       INTEGER,
-                episode      INTEGER NOT NULL,
-                watched_at   TEXT,
+                content_type TEXT NOT NULL,
+                content_id TEXT NOT NULL,
+                season INTEGER,
+                episode INTEGER NOT NULL,
+                watched_at TEXT,
                 PRIMARY KEY (content_type, content_id, season, episode)
             )
         ''')
 
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS skip_timestamps_tvshow (
-                imdb_id     TEXT    NOT NULL,
-                season      INTEGER NOT NULL,
-                episode     INTEGER NOT NULL,
+                imdb_id TEXT NOT NULL,
+                season INTEGER NOT NULL,
+                episode INTEGER NOT NULL,
                 intro_start REAL,
-                intro_end   REAL,
-                source      TEXT    DEFAULT 'api',
-                updated_at  TEXT,
+                intro_end REAL,
+                source TEXT DEFAULT 'api',
+                updated_at TEXT,
                 PRIMARY KEY (imdb_id, season, episode)
             )
         ''')
 
-        cursor.execute('CREATE INDEX IF NOT EXISTS idx_tvshows_season   ON episodes_tvshows(tmdb_id, season)')
-        cursor.execute('CREATE INDEX IF NOT EXISTS idx_animes_mal       ON episodes_animes(mal_id)')
-        cursor.execute('CREATE INDEX IF NOT EXISTS idx_skip_tvshow      ON skip_timestamps_tvshow(imdb_id, season)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_tvshows_season ON episodes_tvshows(tmdb_id, season)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_animes_mal ON episodes_animes(mal_id)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_skip_tvshow ON skip_timestamps_tvshow(imdb_id, season)')
 
         conn.commit()
     except Exception:
@@ -234,15 +234,15 @@ def save_tvshow_season_episodes(tmdb_id, season, serie_name, original_name,
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(tmdb_id, season, episode)
             DO UPDATE SET
-                episode_title   = excluded.episode_title,
-                description     = excluded.description,
-                thumbnail       = excluded.thumbnail,
-                fanart          = excluded.fanart,
-                serie_name      = excluded.serie_name,
-                original_name   = excluded.original_name,
-                imdb_id         = COALESCE(excluded.imdb_id, imdb_id),
+                episode_title = excluded.episode_title,
+                description = excluded.description,
+                thumbnail = excluded.thumbnail,
+                fanart = excluded.fanart,
+                serie_name = excluded.serie_name,
+                original_name = excluded.original_name,
+                imdb_id = COALESCE(excluded.imdb_id, imdb_id),
                 is_last_episode = excluded.is_last_episode,
-                updated_at      = excluded.updated_at
+                updated_at = excluded.updated_at
         ''', batch_data)
 
 def process_and_save_tvshow_season(tmdb_id, season_data, imdb_id=None):
@@ -476,13 +476,13 @@ def open_anime_episodes_api(id):
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(mal_id, episode)
                 DO UPDATE SET
-                    episode_title      = excluded.episode_title,
-                    description        = excluded.description,
-                    thumbnail          = excluded.thumbnail,
-                    anime_name         = excluded.anime_name,
+                    episode_title = excluded.episode_title,
+                    description = excluded.description,
+                    thumbnail = excluded.thumbnail,
+                    anime_name = excluded.anime_name,
                     anime_name_english = excluded.anime_name_english,
-                    is_last_episode    = excluded.is_last_episode,
-                    updated_at         = excluded.updated_at
+                    is_last_episode = excluded.is_last_episode,
+                    updated_at = excluded.updated_at
             ''', batch_data)
     except Exception:
         pass
@@ -629,7 +629,7 @@ class ThunderDatabase:
                 ON CONFLICT(imdb_id, season, episode)
                 DO UPDATE SET
                     intro_start = COALESCE(excluded.intro_start, intro_start),
-                    intro_end   = COALESCE(excluded.intro_end,   intro_end),
+                    intro_end = COALESCE(excluded.intro_end, intro_end),
                     source      = excluded.source,
                     updated_at  = excluded.updated_at
             ''', (imdb_id, int(season), int(episode), intro_start, intro_end, source, now))

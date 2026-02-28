@@ -187,8 +187,7 @@ def build_anime_playlist(mal_id, current_episode_num, serie_name, original_name,
                 'episode_title': name,
                 'iconimage': img,
                 'fanart': fanart,
-                'description': description,
-                'is_anime': 'true'
+                'description': description
             }
 
             plugin_url = 'plugin://plugin.video.thethunder/play_resolve_animes/{}'.format(urlencode(params))
@@ -221,7 +220,7 @@ def build_anime_playlist(mal_id, current_episode_num, serie_name, original_name,
 
             playlist.add(url=plugin_url, listitem=list_item)
 
-def try_resolve_with_fallback(menus_links, season, episode, is_anime=False):
+def try_resolve_with_fallback(menus_links, resolver):
     if not menus_links:
         return None, None
     preferred_lang = get_preferred_language().upper()
@@ -255,16 +254,7 @@ def try_resolve_with_fallback(menus_links, season, episode, is_anime=False):
                 continue
             tried.add(final_url)
 
-            if is_anime:
-                if season is None and episode is None:
-                    stream, sub = sources.select_resolver_anime_movie(final_url)
-                else:
-                    stream, sub = sources.select_resolver_anime(final_url, episode)
-            else:
-                if season is None and episode is None:
-                    stream, sub = sources.select_resolver_movie(final_url)
-                else:
-                    stream, sub = sources.select_resolver_tvshow(final_url, season, episode)
+            stream, sub = resolver(final_url)
 
             if stream:
                 return stream, sub
@@ -277,23 +267,22 @@ def auto_play_preferred_language(mal_id, tmdb_id, imdb, year, season, episode, v
         if is_anime == 'true':
             if episode is None:
                 menus_links = sources.movie_content_anime(mal_id)
+                resolver = lambda url: sources.resolve_anime_movies(url)
             else:
                 menus_links = sources.show_content_anime(mal_id, episode)
+                resolver = lambda url: sources.resolve_animes(url)
         elif season is None and episode is None:
             menus_links = sources.movie_content(imdb, year)
+            resolver = lambda url: sources.resolve_movies(url)
         else:
             menus_links = sources.show_content(imdb, season, episode)
+            resolver = lambda url: sources.resolve_tvshows(url)
 
         if not menus_links:
             notify(getString(30401))
             return False
 
-        stream, sub = try_resolve_with_fallback(
-            menus_links,
-            season,
-            episode,
-            is_anime=(is_anime == 'true')
-        )
+        stream, sub = try_resolve_with_fallback(menus_links, resolver)
 
         if not stream:
             notify(getString(30402))
@@ -498,7 +487,6 @@ def search_anime(param=None):
             'iconimage': icon,
             'fanart': fanart,
             'description': description,
-            'is_anime': 'true',
             'anime_name': title
         }, destiny='/anime_episodes')
     if page < total_pages:
@@ -743,7 +731,6 @@ def popular_anime(param=None):
             'iconimage': icon,
             'fanart': fanart,
             'description': description,
-            'is_anime': 'true',
             'anime_name': title
         }, destiny='/anime_episodes')
     if page < total_pages:
@@ -774,7 +761,6 @@ def airing_anime(param=None):
             'iconimage': icon,
             'fanart': fanart,
             'description': description,
-            'is_anime': 'true',
             'anime_name': title
         }, destiny='/anime_episodes')
     if page < total_pages:
@@ -846,7 +832,6 @@ def animes_by_season(param):
                 'iconimage': icon,
                 'fanart': fanart,
                 'description': description,
-                'is_anime': 'true',
                 'anime_name': title
             }, destiny='/anime_episodes')
 
@@ -899,7 +884,8 @@ def play_resolve_movies(param):
         if is_auto_play_enabled():
             loading_manager.set_phase3()
             stream, sub = try_resolve_with_fallback(
-                menus_links, is_anime=False
+                menus_links,
+                lambda url: sources.resolve_movies(url)
             )
             if not stream:
                 loading_manager.force_close()
@@ -921,7 +907,7 @@ def play_resolve_movies(param):
             qs = parse_qs(parsed.query)
             final_url = qs.get('url', [decoded])[0] or qs.get('u', [decoded])[0] or decoded
 
-            stream, sub = sources.select_resolver_movie(final_url)
+            stream, sub = sources.resolve_movies(final_url)
 
             if not stream:
                 loading_manager.force_close()
@@ -1037,7 +1023,6 @@ def anime_episodes(param):
     year = param.get('year', '')
     anime_name = param.get('anime_name', '')
     iconimage = param.get('iconimage', get_icon('animes'))
-    is_anime = param.get('is_anime', 'true')
 
     try:
         show_src = httpclient.open_anime_api(mal_id).get('data', {})
@@ -1058,7 +1043,6 @@ def anime_episodes(param):
                 'fanart': fanart,
                 'description': description,
                 'year': year,
-                'is_anime': is_anime,
                 'playable': 'true'
             }, destiny='/play_resolve_anime_movies', folder=False)
             end()
@@ -1091,7 +1075,6 @@ def anime_episodes(param):
                 'episode_num': str(epnum),
                 'serie_name': anime_name,
                 'episode_title': ep_name,
-                'is_anime': is_anime,
                 'mediatype': 'episode',
                 'playable': 'true',
                 'playcount': 1 if int(epnum) in watched_set else 0
@@ -1220,9 +1203,7 @@ def play_resolve_tvshows(param):
 
             stream, sub = try_resolve_with_fallback(
                 menus_links,
-                season_num,
-                episode_num,
-                is_anime=False
+                lambda url: sources.resolve_tvshows(url)
             )
 
             if not stream:
@@ -1245,7 +1226,7 @@ def play_resolve_tvshows(param):
             qs = parse_qs(parsed.query)
             final_url = qs.get('url', [decoded])[0] or qs.get('u', [decoded])[0] or decoded
 
-            stream, sub = sources.select_resolver_tvshow(final_url, season_num, episode_num)
+            stream, sub = sources.resolve_tvshows(final_url)
 
             if not stream:
                 loading_manager.force_close()
@@ -1350,7 +1331,6 @@ def play_resolve_animes(param):
     iconimage = param.get('iconimage', '')
     fanart = param.get('fanart', iconimage)
     description = param.get('description', '')
-    is_anime = param.get('is_anime', 'true')
     serie_name = param.get('serie_name', '')
     original_name = param.get('original_name', '')
     episode_title = param.get('episode_title', '')
@@ -1385,8 +1365,7 @@ def play_resolve_animes(param):
 
             stream, sub = try_resolve_with_fallback(
                 menus_links,
-                episode_num,
-                is_anime=True
+                lambda url: sources.resolve_animes(url)
             )
 
             if not stream:
@@ -1409,7 +1388,7 @@ def play_resolve_animes(param):
             qs = parse_qs(parsed.query)
             final_url = qs.get('url', [decoded])[0] or qs.get('u', [decoded])[0] or decoded
 
-            stream, sub = sources.select_resolver_anime(final_url, episode_num)
+            stream, sub = sources.resolve_animes(final_url)
 
             if not stream:
                 loading_manager.force_close()
@@ -1503,7 +1482,8 @@ def play_resolve_anime_movies(param):
         if is_auto_play_enabled():
             loading_manager.set_phase3()
             stream, sub = try_resolve_with_fallback(
-                menus_links, is_anime=True
+                menus_links,
+                lambda url: sources.resolve_anime_movies(url)
             )
             if not stream:
                 loading_manager.force_close()
@@ -1525,7 +1505,7 @@ def play_resolve_anime_movies(param):
             qs = parse_qs(parsed.query)
             final_url = qs.get('url', [decoded])[0] or qs.get('u', [decoded])[0] or decoded
 
-            stream, sub = sources.select_resolver_anime_movie(final_url)
+            stream, sub = sources.resolve_anime_movies(final_url)
 
             if not stream:
                 loading_manager.force_close()

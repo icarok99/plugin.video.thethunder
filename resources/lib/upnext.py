@@ -111,8 +111,7 @@ class UpNextDialog(xbmcgui.WindowXMLDialog):
                     return
             except Exception:
                 pass
-        elif action_id in (xbmcgui.ACTION_NAV_BACK, xbmcgui.ACTION_PREVIOUS_MENU,
-                           xbmcgui.ACTION_STOP):
+        elif action_id in (xbmcgui.ACTION_NAV_BACK, xbmcgui.ACTION_PREVIOUS_MENU, xbmcgui.ACTION_STOP):
             self.cancelled = True
             self._stop_countdown = True
             self.close()
@@ -255,7 +254,6 @@ class UpNextTVShowService:
 
     def _monitoring_loop(self, tmdb_id, season, episode, next_info):
         monitor = xbmc.Monitor()
-
         waited = 0
         while waited < 30:
             if not self.player.isPlayingVideo():
@@ -538,7 +536,6 @@ class UpNextAnimeService:
 
     def _monitoring_loop(self, mal_id, episode, next_info):
         monitor = xbmc.Monitor()
-
         waited = 0
         while waited < 30:
             if not self.player.isPlayingVideo():
