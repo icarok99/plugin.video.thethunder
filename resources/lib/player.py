@@ -38,7 +38,6 @@ class ThunderPlayer(xbmc.Player):
         monitor = xbmc.Monitor()
         waited = 0
         max_wait = 30
-
         while waited < max_wait and not monitor.abortRequested():
             if self.isPlayingVideo() and self.getTotalTime() > 30:
                 break
@@ -62,7 +61,6 @@ class ThunderPlayer(xbmc.Player):
         monitor = xbmc.Monitor()
         waited = 0
         max_wait = 30
-
         while waited < max_wait and not monitor.abortRequested():
             if self.isPlayingVideo() and self.getTotalTime() > 30:
                 break
