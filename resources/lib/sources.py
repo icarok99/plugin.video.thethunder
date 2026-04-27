@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-
 import os
 import sys
 import re
@@ -31,8 +30,7 @@ except:
 def import_scripts(pasta):
     scripts = [f[:-3] for f in os.listdir(pasta) if f.endswith(".py") and f != "__init__.py"]
     modulos = []
-    sys.path.append(pasta)  
-
+    sys.path.append(pasta)
     for script in scripts:
         source_enabled = True
         if addon_instance:
@@ -55,18 +53,16 @@ def import_scripts(pasta):
                     source_enabled = False
             except:
                 pass
-
         if source_enabled:
             try:
                 if sys.version_info.major == 3:
                     import importlib
-                    modulo = importlib.import_module(script)  
+                    modulo = importlib.import_module(script)
                 else:
                     modulo = __import__(script)
                 modulos.append(modulo)
             except Exception as e:
                 pass
-
     return modulos
 
 modules_import = import_scripts(scrapers) if scrapers else []
@@ -80,61 +76,49 @@ def get_anime_scrapers():
 def get_non_anime_scrapers():
     return [m for m in modules_import if m.__name__ in NON_ANIME_SOURCES]
 
-def search_movies(imdb, year):
+def search_movies(tmdb_id, year):
     stream_movies = []
-    non_anime_scrapers = get_non_anime_scrapers()
-    
-    for modulo in non_anime_scrapers:
+    for modulo in get_non_anime_scrapers():
         try:
-            result = modulo.source.search_movies(imdb, year)
+            result = modulo.source.search_movies(tmdb_id, year)
             if result:
                 stream_movies.append(result)
         except:
             continue
-    
     streams_final = []
-    if stream_movies:
-        for streams in stream_movies:
-            if streams:
-                for s in streams:
-                    name, page = s
-                    streams_final.append((name, page))
-    
+    for streams in stream_movies:
+        if streams:
+            for s in streams:
+                name, page = s
+                streams_final.append((name, page))
     return streams_final
 
-def search_tvshows(imdb, season, episode):
+def search_tvshows(tmdb_id, season, episode):
     stream_tvshows = []
-    non_anime_scrapers = get_non_anime_scrapers()
-    
-    for modulo in non_anime_scrapers:
+    for modulo in get_non_anime_scrapers():
         try:
-            result = modulo.source.search_tvshows(imdb, season, episode)
+            result = modulo.source.search_tvshows(tmdb_id, season, episode)
             if result:
                 stream_tvshows.append(result)
         except:
             continue
-    
     streams_final = []
-    if stream_tvshows:
-        for streams in stream_tvshows:
-            if streams:
-                for s in streams:
-                    name, page = s
-                    streams_final.append((name, page))
-    
+    for streams in stream_tvshows:
+        if streams:
+            for s in streams:
+                name, page = s
+                streams_final.append((name, page))
     return streams_final
 
-def movie_content(imdb, year):
-    return search_movies(imdb, year)
+def movie_content(tmdb_id, year):
+    return search_movies(tmdb_id, year)
 
-def show_content(imdb, season, episode):
-    return search_tvshows(imdb, season, episode)
+def show_content(tmdb_id, season, episode):
+    return search_tvshows(tmdb_id, season, episode)
 
 def search_anime_episodes(mal_id, episode):
     stream_animes = []
-    anime_scrapers = get_anime_scrapers()
-    
-    for modulo in anime_scrapers:
+    for modulo in get_anime_scrapers():
         try:
             if hasattr(modulo.source, 'search_animes'):
                 result = modulo.source.search_animes(mal_id, episode)
@@ -142,21 +126,17 @@ def search_anime_episodes(mal_id, episode):
                     stream_animes.append(result)
         except:
             continue
-    
     streams_final = []
     for streams in stream_animes:
         if streams:
             for s in streams:
                 name, page = s
                 streams_final.append((name, page))
-    
     return streams_final
 
 def search_anime_movies(mal_id):
     stream_animes = []
-    anime_scrapers = get_anime_scrapers()
-    
-    for modulo in anime_scrapers:
+    for modulo in get_anime_scrapers():
         try:
             if hasattr(modulo.source, 'search_animes'):
                 result = modulo.source.search_animes(mal_id)
@@ -164,14 +144,12 @@ def search_anime_movies(mal_id):
                     stream_animes.append(result)
         except:
             continue
-    
     streams_final = []
     for streams in stream_animes:
         if streams:
             for s in streams:
                 name, page = s
                 streams_final.append((name, page))
-    
     return streams_final
 
 def show_content_anime(mal_id, episode):
@@ -241,5 +219,3 @@ def resolve_anime_movies(url):
             except:
                 continue
     return stream, sub
-
-

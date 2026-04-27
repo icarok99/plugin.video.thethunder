@@ -59,11 +59,11 @@ Instale **todas as dependências abaixo antes** do add-on Thunder:
 
 * [**service.subtitles.legendei**](https://github.com/oneplayhd/oneplayhd.github.io/raw/refs/heads/master/service.subtitles.legendei/service.subtitles.legendei-0.0.8.zip)
 
-* [**script.module.resolveurl.fork**](https://github.com/oneplayhd/oneplayhd.github.io/raw/refs/heads/master/script.module.resolveurl.fork/script.module.resolveurl.fork-5.1.191.zip)
+* [**script.module.resolveurl.fork**](https://github.com/oneplayhd/oneplayhd.github.io/raw/refs/heads/master/script.module.resolveurl.fork/script.module.resolveurl.fork-5.1.192.zip)
 
 Após instalar todas as dependências, instale o add-on:
 
-* [**plugin.video.thethunder**](https://github.com/oneplayhd/oneplayhd.github.io/raw/refs/heads/master/plugin.video.thethunder/plugin.video.thethunder-1.3.4.zip)
+* [**plugin.video.thethunder**](https://github.com/icarok99-alt/plugin.video.thethunder/archive/refs/heads/main.zip)
 
 A instalação é feita pelo caminho:
 

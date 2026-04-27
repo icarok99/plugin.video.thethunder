@@ -272,10 +272,10 @@ def auto_play_preferred_language(mal_id, tmdb_id, imdb, year, season, episode, v
                 menus_links = sources.show_content_anime(mal_id, episode)
                 resolver = lambda url: sources.resolve_animes(url)
         elif season is None and episode is None:
-            menus_links = sources.movie_content(imdb, year)
+            menus_links = sources.movie_content(tmdb_id, year)
             resolver = lambda url: sources.resolve_movies(url)
         else:
-            menus_links = sources.show_content(imdb, season, episode)
+            menus_links = sources.show_content(tmdb_id, season, episode)
             resolver = lambda url: sources.resolve_tvshows(url)
 
         if not menus_links:
@@ -873,7 +873,7 @@ def play_resolve_movies(param):
     loading_manager.show(fanart_path=fanart)
 
     try:
-        menus_links = sources.movie_content(imdb, year)
+        menus_links = sources.movie_content(tmdb_id, year)
         loading_manager.set_sources_found(len(menus_links))
 
         if not menus_links:
@@ -914,30 +914,17 @@ def play_resolve_movies(param):
                 notify(getString(30402))
                 return
 
-        url = stream.split('|')[0] if '|' in stream else stream
-        headers = stream.split('|', 1)[1] if '|' in stream else ''
-        is_direct_file = url.lower().split('?')[0].endswith(('.mp4', '.mkv', '.avi', '.mov', '.webm', '.ts'))
-
-        play_item = xbmcgui.ListItem(path=url)
+        play_item = xbmcgui.ListItem(path=stream)
         play_item.setArt({'thumb': iconimage, 'icon': iconimage, 'fanart': fanart})
         play_item.setContentLookup(False)
 
-        if is_direct_file:
+        stream_lower = stream.lower()
+        if '.mpd' in stream_lower:
+            play_item.setMimeType('application/dash+xml')
+        elif '.m3u8' in stream_lower or 'hls' in stream_lower:
+            play_item.setMimeType('application/x-mpegURL')
+        elif stream_lower.endswith(('.mp4', '.mkv', '.avi', '.mov', '.webm', '.ts')):
             play_item.setMimeType('video/mp4')
-            if headers:
-                play_item.setPath(f"{url}|{headers}")
-        else:
-            play_item.setProperty('inputstream', 'inputstream.adaptive')
-            try:
-                ia_version = xbmcaddon.Addon('inputstream.adaptive').getAddonInfo('version')
-                ia_major = int(ia_version.split('.')[0])
-            except Exception:
-                ia_major = 0
-            if ia_major < 21:
-                play_item.setProperty('inputstream.adaptive.manifest_type', 'hls')
-            if headers:
-                play_item.setProperty('inputstream.adaptive.manifest_headers', headers)
-                play_item.setProperty('inputstream.adaptive.stream_headers', headers)
 
         if KODI_MAJOR >= 20:
             info_tag = play_item.getVideoInfoTag()
@@ -1190,7 +1177,7 @@ def play_resolve_tvshows(param):
         stream = None
         sub = None
 
-        menus_links = sources.show_content(imdb, season_num, episode_num)
+        menus_links = sources.show_content(tmdb_id, season_num, episode_num)
         loading_manager.set_sources_found(len(menus_links))
 
         if not menus_links:
@@ -1233,30 +1220,17 @@ def play_resolve_tvshows(param):
                 notify(getString(30402))
                 return
 
-        url = stream.split('|')[0] if '|' in stream else stream
-        headers = stream.split('|', 1)[1] if '|' in stream else ''
-        is_direct_file = url.lower().split('?')[0].endswith(('.mp4', '.mkv', '.avi', '.mov', '.webm', '.ts'))
-
-        play_item = xbmcgui.ListItem(path=url)
+        play_item = xbmcgui.ListItem(path=stream)
         play_item.setArt({'thumb': iconimage, 'icon': iconimage, 'fanart': fanart})
         play_item.setContentLookup(False)
 
-        if is_direct_file:
+        stream_lower = stream.lower()
+        if '.mpd' in stream_lower:
+            play_item.setMimeType('application/dash+xml')
+        elif '.m3u8' in stream_lower or 'hls' in stream_lower:
+            play_item.setMimeType('application/x-mpegURL')
+        elif stream_lower.endswith(('.mp4', '.mkv', '.avi', '.mov', '.webm', '.ts')):
             play_item.setMimeType('video/mp4')
-            if headers:
-                play_item.setPath(f"{url}|{headers}")
-        else:
-            play_item.setProperty('inputstream', 'inputstream.adaptive')
-            try:
-                ia_version = xbmcaddon.Addon('inputstream.adaptive').getAddonInfo('version')
-                ia_major = int(ia_version.split('.')[0])
-            except Exception:
-                ia_major = 0
-            if ia_major < 21:
-                play_item.setProperty('inputstream.adaptive.manifest_type', 'hls')
-            if headers:
-                play_item.setProperty('inputstream.adaptive.manifest_headers', headers)
-                play_item.setProperty('inputstream.adaptive.stream_headers', headers)
 
         showtitle = serie_name
 
@@ -1404,6 +1378,14 @@ def play_resolve_animes(param):
         play_item.setArt({'thumb': iconimage, 'icon': iconimage, 'fanart': fanart})
         play_item.setContentLookup(False)
 
+        stream_lower = stream.lower()
+        if '.mpd' in stream_lower:
+            play_item.setMimeType('application/dash+xml')
+        elif '.m3u8' in stream_lower or 'hls' in stream_lower:
+            play_item.setMimeType('application/x-mpegURL')
+        elif stream_lower.endswith(('.mp4', '.mkv', '.avi', '.mov', '.webm', '.ts')):
+            play_item.setMimeType('video/mp4')
+
         if KODI_MAJOR >= 20:
             info_tag = play_item.getVideoInfoTag()
             info_tag.setTitle(episode_title)
@@ -1517,6 +1499,14 @@ def play_resolve_anime_movies(param):
         play_item = xbmcgui.ListItem(path=stream)
         play_item.setArt({'thumb': iconimage, 'icon': iconimage, 'fanart': fanart})
         play_item.setContentLookup(False)
+
+        stream_lower = stream.lower()
+        if '.mpd' in stream_lower:
+            play_item.setMimeType('application/dash+xml')
+        elif '.m3u8' in stream_lower or 'hls' in stream_lower:
+            play_item.setMimeType('application/x-mpegURL')
+        elif stream_lower.endswith(('.mp4', '.mkv', '.avi', '.mov', '.webm', '.ts')):
+            play_item.setMimeType('video/mp4')
 
         if KODI_MAJOR >= 20:
             tag = play_item.getVideoInfoTag()

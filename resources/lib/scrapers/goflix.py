@@ -28,8 +28,35 @@ session.headers.update({
     'User-Agent': USER_AGENT,
     'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
     'Accept': '*/*',
-    'Referer': 'https://goflixy.lol/',
+    'Referer': 'https://goflix10.lol/',
 })
+
+_tmdb_session = requests.Session()
+_tmdb_session.headers.update({
+    'User-Agent': USER_AGENT,
+    'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+})
+
+def _scrape_tmdb_page(media_type, tmdb_id, language=None):
+    url = 'https://www.themoviedb.org/{}/{}'.format(media_type, tmdb_id)
+    params = {'language': language} if language else {}
+    try:
+        r = _tmdb_session.get(url, params=params, timeout=10)
+        if r.status_code != 200:
+            return '', ''
+        soup = BeautifulSoup(r.text, 'html.parser')
+        og = soup.find('meta', property='og:title')
+        title = og['content'].strip() if og and og.get('content') else ''
+        year = ''
+        t = soup.find('title')
+        if t:
+            m = re.search(r'\((?:TV Series )?(\d{4})', t.get_text())
+            if m:
+                year = m.group(1)
+        return title, year
+    except:
+        return '', ''
 
 
 class source:
@@ -43,57 +70,14 @@ class source:
         return title
 
     @classmethod
-    def find_title(cls, imdb):
-        url = f'https://m.imdb.com/pt/title/{imdb}/'
-        headers = {'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7'}
-
-        try:
-            r = session.get(url, headers=headers, timeout=15)
-            if not r or r.status_code != 200:
-                return '', '', ''
-
-            soup = BeautifulSoup(r.text, 'html.parser')
-
-            title_pt = ''
-            hero = soup.find('h1', {'data-testid': 'hero__pageTitle'})
-            if hero:
-                span = hero.find('span')
-                title_pt = (span.text if span else hero.text).strip()
-
-            original_title = ''
-            orig_block = soup.find('div', {'data-testid': 'hero-title-block__original-title'})
-            if orig_block:
-                txt = orig_block.get_text(strip=True)
-                original_title = re.sub(r'^(T[íi]tulo original|Original title)[:\s]*', '', txt, flags=re.I).strip()
-
-            if not original_title:
-                m = re.search(r'T[íi]tulo original[:\s]*["\']?([^<"\']+)["\']?', r.text, re.I)
-                if m:
-                    original_title = m.group(1).strip()
-
-            year = ''
-            year_link = soup.find('a', href=re.compile(r'/releaseinfo'))
-            if year_link:
-                y = re.search(r'\d{4}', year_link.text)
-                if y:
-                    year = y.group(0)
-
-            if not year:
-                release_li = soup.find('li', {'data-testid': 'title-details-releasedate'})
-                if release_li:
-                    y = re.search(r'\d{4}', release_li.get_text())
-                    if y:
-                        year = y.group(0)
-
-            if not year:
-                y = re.search(r'\b(19|20)\d{2}\b', r.text[:6000])
-                if y:
-                    year = y.group(0)
-
-            return title_pt or original_title, original_title or title_pt, year or ''
-
-        except Exception:
-            return '', '', ''
+    def find_title(cls, tmdb_id, media_type='movie'):
+        title_pt, year = _scrape_tmdb_page(media_type, tmdb_id, language='pt-BR')
+        original_title, year_orig = _scrape_tmdb_page(media_type, tmdb_id, language=None)
+        if not title_pt:
+            title_pt = original_title
+        if not year:
+            year = year_orig
+        return title_pt, original_title, year
 
     @classmethod
     def _resolve_fembed(cls, share_id, lang, cvalue=""):
@@ -150,8 +134,8 @@ class source:
             return None
 
     @classmethod
-    def search_movies(cls, imdb, year=None):
-        pt, original_title, imdb_year = cls.find_title(imdb)
+    def search_movies(cls, tmdb_id, year=None):
+        pt, original_title, imdb_year = cls.find_title(tmdb_id, media_type='movie')
         if not pt:
             return []
 
@@ -212,14 +196,14 @@ class source:
         return []
 
     @classmethod
-    def search_tvshows(cls, imdb, season, episode):
+    def search_tvshows(cls, tmdb_id, season, episode):
         try:
             season = int(season)
             episode = int(episode)
         except:
             return []
 
-        pt, original_title, imdb_year = cls.find_title(imdb)
+        pt, original_title, imdb_year = cls.find_title(tmdb_id, media_type='tv')
         if not pt:
             return []
 
@@ -315,4 +299,4 @@ class source:
     def resolve_tvshows(cls, url):
         return cls.resolve_movies(url)
 
-    __site_url__ = ['https://goflixy.lol/']
+    __site_url__ = ['https://goflix10.lol/']
