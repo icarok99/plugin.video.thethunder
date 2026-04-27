@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-
 WEBSITE = 'NETCINE'
 
 import requests
@@ -31,9 +30,19 @@ session.headers.update({
     "Referer": "https://netcinett.lat/"
 })
 
+tmdb_session = requests.Session()
+tmdb_session.verify = False
+tmdb_session.headers.update({
+    "User-Agent": USER_AGENT,
+    "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+})
+
+TMDB_BASE = "https://www.themoviedb.org"
+
 def get_last_base(original_url):
     try:
-        r = session.get(original_url, allow_redirects=True)
+        r = session.get(original_url, allow_redirects=True, timeout=10)
         final_url = r.url.rstrip('/')
         if "netcine" in final_url.lower():
             return final_url + "/"
@@ -47,55 +56,54 @@ HOST = get_last_base(ORIGINAL_BASE)
 def clean_title(title):
     return re.sub(r'[:\-—]', ' ', title).strip()
 
+def _scrape_tmdb_page(media_type, tmdb_id, language=None):
+    url = "{}/{}/{}".format(TMDB_BASE, media_type, tmdb_id)
+    params = {"language": language} if language else {}
+    try:
+        r = tmdb_session.get(url, params=params, timeout=10)
+        if r.status_code != 200:
+            return '', ''
+        soup = BeautifulSoup(r.text, 'html.parser')
+        og_title = soup.find('meta', property='og:title')
+        title = og_title['content'].strip() if og_title and og_title.get('content') else ''
+        year = ''
+        page_title_tag = soup.find('title')
+        if page_title_tag:
+            m = re.search(r'\((?:TV Series )?(\d{4})', page_title_tag.get_text())
+            if m:
+                year = m.group(1)
+        return title, year
+    except:
+        return '', ''
+
 class source:
     __site_url__ = [HOST]
 
     @classmethod
-    def find_title(cls, imdb):
-        url = "https://m.imdb.com/pt/title/" + imdb + "/"
-        try:
-            r = session.get(url)
-            if r.status_code != 200:
-                return '', '', ''
-            soup = BeautifulSoup(r.text, 'html.parser')
-            title_pt = ''
-            hero = soup.find('h1', {'data-testid': 'hero__pageTitle'})
-            if hero:
-                span = hero.find('span')
-                title_pt = span.get_text(strip=True) if span else hero.get_text(strip=True)
-            original_title = ''
-            orig = soup.find('div', string=lambda t: t and 'Título original' in t)
-            if orig:
-                next_div = orig.find_next('div')
-                if next_div:
-                    original_title = next_div.get_text(strip=True)
-            year = ''
-            y = soup.find('a', href=re.compile(r'/releaseinfo'))
-            if y:
-                m = re.search(r'\d{4}', y.get_text())
-                if m:
-                    year = m.group(0)
-            return title_pt, original_title, year
-        except:
-            return '', '', ''
+    def find_title(cls, tmdb_id, media_type='movie'):
+        title_pt, year = _scrape_tmdb_page(media_type, tmdb_id, language='pt-BR')
+        original_title, year_orig = _scrape_tmdb_page(media_type, tmdb_id, language=None)
+        if not title_pt:
+            title_pt = original_title
+        if not year:
+            year = year_orig
+        return title_pt, original_title, year
 
     @classmethod
-    def search_movies(cls, imdb, year):
-        title_pt, original_title, imdb_year = cls.find_title(imdb)
-        if not imdb_year:
+    def search_movies(cls, tmdb_id, year):
+        title_pt, original_title, tmdb_year = cls.find_title(tmdb_id, media_type='movie')
+        if not tmdb_year:
             return []
-
         search_titles = []
         if title_pt:
             search_titles.append((title_pt, True))
         if original_title and original_title != title_pt:
             search_titles.append((original_title, False))
-
         for search_title, is_pt in search_titles:
             clean_search = clean_title(search_title)
             search_url = HOST + "?s=" + quote_plus(clean_search)
             try:
-                r = session.get(search_url)
+                r = session.get(search_url, timeout=15)
                 if r.status_code != 200:
                     continue
                 soup = BeautifulSoup(r.text, 'html.parser')
@@ -112,7 +120,7 @@ class source:
                     page_year_raw = year_span.get_text(strip=True) if year_span else ""
                     page_year_match = re.search(r'\d{4}', page_year_raw)
                     page_year = page_year_match.group(0) if page_year_match else page_year_raw
-                    if page_year != imdb_year:
+                    if page_year != tmdb_year:
                         continue
                     clean_page = re.sub(r'(?i)\s*(dublado|legendado|hd|4k|1080p|720p|cam|ts).*', '', page_title).strip()
                     sim = difflib.SequenceMatcher(None, search_title.lower(), clean_page.lower()).ratio()
@@ -123,22 +131,20 @@ class source:
         return []
 
     @classmethod
-    def search_tvshows(cls, imdb, season, episode):
-        title_pt, original_title, imdb_year = cls.find_title(imdb)
-        if not imdb_year:
+    def search_tvshows(cls, tmdb_id, season, episode):
+        title_pt, original_title, tmdb_year = cls.find_title(tmdb_id, media_type='tv')
+        if not tmdb_year:
             return []
-
         search_titles = []
         if title_pt:
             search_titles.append((title_pt, True))
         if original_title and original_title != title_pt:
             search_titles.append((original_title, False))
-
         for search_title, is_pt in search_titles:
             clean_search = clean_title(search_title)
             search_url = HOST + "?s=" + quote_plus(clean_search)
             try:
-                r = session.get(search_url)
+                r = session.get(search_url, timeout=15)
                 if r.status_code != 200:
                     continue
                 soup = BeautifulSoup(r.text, 'html.parser')
@@ -154,7 +160,7 @@ class source:
                     page_year_raw = year_span.get_text(strip=True) if year_span else ""
                     page_year_match = re.search(r'\d{4}', page_year_raw)
                     page_year = page_year_match.group(0) if page_year_match else page_year_raw
-                    if page_year != imdb_year:
+                    if page_year != tmdb_year:
                         continue
                     clean_page = re.sub(r'(?i)\s*(dublado|legendado|hd|4k|1080p|720p|cam|ts).*', '', page_title).strip()
                     sim = difflib.SequenceMatcher(None, search_title.lower(), clean_page.lower()).ratio()
@@ -163,23 +169,18 @@ class source:
                         break
                 if not series_href:
                     continue
-
-                r_series = session.get(series_href)
+                r_series = session.get(series_href, timeout=15)
                 soup_series = BeautifulSoup(r_series.text, 'html.parser')
-
                 episode_links = soup_series.select('a[href*="/episode/"]')
-
                 episode_url = None
                 season_int = int(season)
                 episode_int = int(episode)
-
                 patterns = [
                     f"{season_int} - {episode_int}",
                     f"{season_int} - {episode_int:02d}",
                     f"{season_int}x{episode_int:02d}",
                     f"{season_int}x{episode_int}",
                 ]
-
                 for link in episode_links:
                     link_text = link.get_text(strip=True)
                     for pattern in patterns:
@@ -188,7 +189,6 @@ class source:
                             break
                     if episode_url:
                         break
-
                 if episode_url:
                     return cls._get_players(episode_url)
             except:
@@ -199,7 +199,7 @@ class source:
     def _get_players(cls, page_url):
         links = []
         try:
-            r = session.get(page_url)
+            r = session.get(page_url, timeout=15)
             soup = BeautifulSoup(r.text, 'html.parser')
             tabs = soup.select("#player-container .player-menu li a")
             for tab in tabs:
@@ -212,7 +212,7 @@ class source:
                         src = "https:" + src
                     elif not src.startswith("http"):
                         src = urljoin(HOST, src)
-                    lang = DUBBED if any(x in text for x in ["DUBLAD","DUB","ÁUDIO"]) else SUBTITLED
+                    lang = DUBBED if any(x in text for x in ["DUBLAD", "DUB", "ÁUDIO"]) else SUBTITLED
                     links.append((f"{WEBSITE} • {lang}", src))
         except:
             pass

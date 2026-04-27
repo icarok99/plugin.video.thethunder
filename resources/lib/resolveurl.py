@@ -61,7 +61,7 @@ def download_and_install(url, name):
         dialog.close()
 
 def update():
-    url = 'https://github.com/icarok99/script.module.resolveurl/archive/refs/heads/main.zip'
+    url = 'https://github.com/icarok99-alt/script.module.resolveurl/archive/refs/heads/main.zip'
     download_and_install(url, 'ResolveURL')
 
 if __name__ == '__main__':

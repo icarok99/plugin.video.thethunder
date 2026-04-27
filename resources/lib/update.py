@@ -21,7 +21,7 @@ LOCAL_VERSION = os.path.join(SCRAPERS_PATH, ".update")
 LAST_CHECK_FILE = os.path.join(SCRAPERS_PATH, ".last_check")
 CHECK_INTERVAL = 24 * 60 * 60
 BRANCH = "main"
-BASE_URL = f"https://raw.githubusercontent.com/icarok99/plugin.video.thethunder/{BRANCH}/"
+BASE_URL = f"https://raw.githubusercontent.com/icarok99-alt/plugin.video.thethunder/{BRANCH}/"
 REMOTE_VERSION_URL = BASE_URL + "last_update.txt"
 RAW_SCRAPERS = BASE_URL + "resources/lib/scrapers/"
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
@@ -105,7 +105,7 @@ def get_remote_version():
 
 
 def list_remote_scrapers():
-    tree_url = f"https://api.github.com/repos/icarok99/plugin.video.thethunder/git/trees/{BRANCH}?recursive=1"
+    tree_url = f"https://api.github.com/repos/icarok99-alt/plugin.video.thethunder/git/trees/{BRANCH}?recursive=1"
     tree = http_get(tree_url)
     if not tree:
         return []

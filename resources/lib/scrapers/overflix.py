@@ -16,8 +16,35 @@ session.headers.update({
     'User-Agent': USER_AGENT,
     'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
     'Accept': '*/*',
-    'Referer': 'https://www.overflixtv.bar/',
+    'Referer': 'https://www.overflixtv.autos/',
 })
+
+_tmdb_session = requests.Session()
+_tmdb_session.headers.update({
+    'User-Agent': USER_AGENT,
+    'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+})
+
+def _scrape_tmdb_page(media_type, tmdb_id, language=None):
+    url = 'https://www.themoviedb.org/{}/{}'.format(media_type, tmdb_id)
+    params = {'language': language} if language else {}
+    try:
+        r = _tmdb_session.get(url, params=params, timeout=10)
+        if r.status_code != 200:
+            return '', ''
+        soup = BeautifulSoup(r.text, 'html.parser')
+        og = soup.find('meta', property='og:title')
+        title = og['content'].strip() if og and og.get('content') else ''
+        year = ''
+        t = soup.find('title')
+        if t:
+            m = re.search(r'\((?:TV Series )?(\d{4})', t.get_text())
+            if m:
+                year = m.group(1)
+        return title, year
+    except:
+        return '', ''
 
 try:
     import xbmcaddon
@@ -43,8 +70,9 @@ from resources.lib.resolver import Resolver
 class source:
 
     domain = [
-        'https://www.overflixtv.bar/',
+        'https://www.overflixtv.autos/',
     ]
+
 
     @classmethod
     def get_active_domain(cls):
@@ -102,57 +130,14 @@ class source:
         return title
 
     @classmethod
-    def find_title(cls, imdb):
-        url = f'https://m.imdb.com/pt/title/{imdb}/'
-        headers = {'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7'}
-
-        try:
-            r = session.get(url, headers=headers, timeout=15)
-            if not r or r.status_code != 200:
-                return '', '', ''
-
-            soup = BeautifulSoup(r.text, 'html.parser')
-
-            title_pt = ''
-            hero = soup.find('h1', {'data-testid': 'hero__pageTitle'})
-            if hero:
-                span = hero.find('span')
-                title_pt = (span.text if span else hero.text).strip()
-
-            original_title = ''
-            orig_block = soup.find('div', {'data-testid': 'hero-title-block__original-title'})
-            if orig_block:
-                txt = orig_block.get_text(strip=True)
-                original_title = re.sub(r'^(T[íi]tulo original|Original title)[:\s]*', '', txt, flags=re.I).strip()
-
-            if not original_title:
-                m = re.search(r'T[íi]tulo original[:\s]*["\']?([^<"\']+)["\']?', r.text, re.I)
-                if m:
-                    original_title = m.group(1).strip()
-
-            year = ''
-            year_link = soup.find('a', href=re.compile(r'/releaseinfo'))
-            if year_link:
-                y = re.search(r'\d{4}', year_link.text)
-                if y:
-                    year = y.group(0)
-
-            if not year:
-                release_li = soup.find('li', {'data-testid': 'title-details-releasedate'})
-                if release_li:
-                    y = re.search(r'\d{4}', release_li.get_text())
-                    if y:
-                        year = y.group(0)
-
-            if not year:
-                y = re.search(r'\b(19|20)\d{2}\b', r.text[:6000])
-                if y:
-                    year = y.group(0)
-
-            return title_pt or original_title, original_title or title_pt, year or ''
-
-        except:
-            return '', '', ''
+    def find_title(cls, tmdb_id, media_type='movie'):
+        title_pt, year = _scrape_tmdb_page(media_type, tmdb_id, language='pt-BR')
+        original_title, year_orig = _scrape_tmdb_page(media_type, tmdb_id, language=None)
+        if not title_pt:
+            title_pt = original_title
+        if not year:
+            year = year_orig
+        return title_pt, original_title, year
 
     @classmethod
     def _extract_embeds_from_page(cls, html):
@@ -160,7 +145,7 @@ class source:
         soup = BeautifulSoup(html, 'html.parser')
 
         append_match = re.search(r'append\(\'<iframe src="([^"]+?)/e/getembed\.php', html)
-        embed_base = append_match.group(1) if append_match else "https://www.overflixtv.bar"
+        embed_base = append_match.group(1) if append_match else "https://www.overflixtv.autos"
 
         token = '56f50bf220c22eb9ddab'
         token_append_match = re.search(r'append\(\'<iframe src="[^"]+?/e/getembed\.php\?[^"]*token=([a-f0-9]{20,})[^"]*\'', html)
@@ -196,50 +181,26 @@ class source:
         sv = meta.get('sv')
         play_url = f"{base_url}/e/getplay.php?id={id_}&sv={sv}"
 
-        headers = {
-            'Referer': getembed_url
-        }
         try:
-            r2 = session.get(play_url, headers=headers, allow_redirects=True, timeout=10)
-            if r2.status_code != 200:
-                return None
-            if r2.history:
-                return r2.url
-            html = r2.text
-            patterns = [
-                r'window\.location\.href\s*=\s*[\'"](https?://(?:filemoon|dood|doodstream|mixdrop|streamtape)\.[a-z0-9.-]+/[^\s"\']+)[\'"]',
-                r'<iframe[^>]+src=[\'"](https?://(?:filemoon|dood|doodstream|mixdrop|streamtape)\.[a-z0-9.-]+/[^\s"\']+)[\'"]',
-                r'(?:href|src)=[\'"](https?://(?:filemoon|dood|doodstream|mixdrop|streamtape)\.[a-z0-9.-]+/[^\s"\']+)[\'"]',
-                r'var\s+videoUrl\s*=\s*[\'"](https?://(?:filemoon|dood|doodstream|mixdrop|streamtape)\.[a-z0-9.-]+/[^\s"\']+)[\'"]'
-            ]
-            final_video = None
-            for pattern in patterns:
-                match = re.search(pattern, html, re.I)
-                if match:
-                    final_video = match.group(1)
-                    break
-            if not final_video:
-                if sv == 'doodstream':
-                    redirect = re.search(r'window\.location\.href\s*=\s*[\'"](https?://dsvplay\.com/[^\s"\']+)[\'"]', html, re.I)
-                    if redirect:
-                        final_video = redirect.group(1)
-                elif sv == 'filemoon':
-                    iframe = re.search(r'<iframe[^>]+src=[\'"](https?://filemoon\.[a-z0-9.-]+/[^\s"\']+)[\'"]', html, re.I)
-                    if iframe:
-                        final_video = iframe.group(1)
-                elif sv == 'mixdrop':
-                    mixdrop = re.search(r'(?:window\.location\.href|var\s+videoUrl)\s*=\s*[\'"](https?://mixdrop\.[a-z0-9.-]+/[^\s"\']+)[\'"]', html, re.I)
-                    if mixdrop:
-                        final_video = mixdrop.group(1)
-            return final_video
+            r = session.get(
+                play_url,
+                headers={'Referer': getembed_url},
+                allow_redirects=False,
+                timeout=10,
+            )
+            if r.status_code in (301, 302, 303, 307, 308):
+                location = r.headers.get('Location', '').strip()
+                if location and parsed.netloc not in location:
+                    return location
+            return None
         except:
             return None
 
     @classmethod
-    def search_movies(cls, imdb, year):
+    def search_movies(cls, tmdb_id, year):
         site_url = cls.get_active_domain()
         links = []
-        title, original_title, imdb_year = cls.find_title(imdb)
+        title, original_title, imdb_year = cls.find_title(tmdb_id, media_type='movie')
         if not title and not original_title:
             return links
 
@@ -333,10 +294,10 @@ class source:
             return links
 
     @classmethod
-    def search_tvshows(cls, imdb, season, episode):
+    def search_tvshows(cls, tmdb_id, season, episode):
         site_url = cls.get_active_domain()
         links = []
-        title, original_title, imdb_year = cls.find_title(imdb)
+        title, original_title, imdb_year = cls.find_title(tmdb_id, media_type='tv')
         if not title:
             return links
 
